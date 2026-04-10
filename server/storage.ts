@@ -9,8 +9,74 @@ import {
   type ActivityLog, type InsertActivityLog,
 } from "@shared/schema";
 
-const sqlite = new Database("socal_jobs.db");
+const sqlite = new Database("data.db");
 sqlite.pragma("journal_mode = WAL");
+
+// Create tables if they don't exist
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    company TEXT NOT NULL,
+    location TEXT NOT NULL,
+    city TEXT,
+    county TEXT,
+    zip TEXT,
+    lat REAL,
+    lng REAL,
+    trade TEXT NOT NULL,
+    pay_range TEXT,
+    pay_type TEXT,
+    work_type TEXT,
+    description TEXT,
+    snippet TEXT,
+    url TEXT,
+    source TEXT NOT NULL,
+    source_id TEXT,
+    is_urgent INTEGER DEFAULT 0,
+    is_saved INTEGER DEFAULT 0,
+    tags TEXT,
+    posted_at TEXT,
+    fetched_at TEXT NOT NULL,
+    expires_at TEXT,
+    status TEXT DEFAULT 'active'
+  );
+  CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keywords TEXT NOT NULL,
+    trade TEXT,
+    county TEXT,
+    zip TEXT,
+    radius INTEGER DEFAULT 25,
+    work_type TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    last_triggered TEXT,
+    match_count INTEGER DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    url TEXT,
+    api_key TEXT,
+    is_active INTEGER DEFAULT 1,
+    last_polled TEXT,
+    last_status TEXT,
+    jobs_found INTEGER DEFAULT 0,
+    error_message TEXT,
+    config TEXT
+  );
+  CREATE TABLE IF NOT EXISTS activity_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    action TEXT NOT NULL,
+    details TEXT,
+    jobs_added INTEGER DEFAULT 0,
+    timestamp TEXT NOT NULL
+  );
+`);
+
 export const db = drizzle(sqlite);
 
 export interface IStorage {
