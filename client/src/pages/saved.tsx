@@ -1,11 +1,16 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
   Bookmark, BookmarkCheck, MapPin, Building2, DollarSign,
-  Clock, ExternalLink, Zap, Trash2,
+  Clock, ExternalLink, Zap, Trash2, Phone, Navigation,
+  Copy, Share2, CheckCircle2, Briefcase, ChevronRight,
 } from "lucide-react";
 import type { Job } from "@shared/schema";
 
@@ -21,6 +26,9 @@ function getTimeAgo(dateStr: string): string {
 
 export default function SavedPage() {
   const { toast } = useToast();
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const { data: jobs = [], isLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs", { saved: true }],
@@ -38,9 +46,25 @@ export default function SavedPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({ title: "Job removed from saved" });
     },
   });
+
+  function handleCopy(job: Job) {
+    const text = `${job.title} at ${job.company}\n${job.location}\nPay: ${job.payRange || "Not listed"}\n${job.url || ""}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: "Copied to clipboard" });
+    }).catch(() => {});
+  }
+
+  const job = selectedJob;
+  const phone = job?.description?.match(/\(\d{3}\)\s?\d{3}-\d{4}/)?.[0];
+  const mapUrl = job?.lat && job?.lng
+    ? `https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}`
+    : job ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.location)}` : "";
 
   return (
     <div className="p-4 md:p-6 space-y-5">
@@ -63,55 +87,106 @@ export default function SavedPage() {
             </CardContent>
           </Card>
         ) : (
-          jobs.map((job) => (
-            <Card key={job.id} className={`${job.isUrgent ? "border-l-2 border-l-red-500" : ""}`} data-testid={`saved-job-${job.id}`}>
+          jobs.map((j) => (
+            <Card
+              key={j.id}
+              className={`cursor-pointer hover:border-primary/30 transition-all hover:shadow-sm group ${j.isUrgent ? "border-l-2 border-l-red-500" : ""}`}
+              data-testid={`saved-job-${j.id}`}
+              onClick={() => { setSelectedJob(j); setSheetOpen(true); }}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-sm truncate">{job.title}</h3>
-                      {job.isUrgent && (
-                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5">
-                          <Zap className="w-3 h-3 mr-0.5" />URGENT
-                        </Badge>
+                      <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{j.title}</h3>
+                      {j.isUrgent && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5"><Zap className="w-3 h-3 mr-0.5" />URGENT</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{job.company}</span>
-                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{job.location}</span>
+                      <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{j.company}</span>
+                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{j.location}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      {job.payRange && (
-                        <Badge variant="secondary" className="text-[11px] font-medium">
-                          <DollarSign className="w-3 h-3 mr-0.5" />{job.payRange}
-                        </Badge>
+                      {j.payRange && (
+                        <Badge variant="secondary" className="text-[11px] font-medium"><DollarSign className="w-3 h-3 mr-0.5" />{j.payRange}</Badge>
                       )}
-                      <Badge variant="outline" className="text-[11px]">{job.trade}</Badge>
-                      <span className="text-[11px] text-muted-foreground ml-auto flex items-center gap-1">
-                        <Clock className="w-3 h-3" />{getTimeAgo(job.fetchedAt)}
-                      </span>
+                      <Badge variant="outline" className="text-[11px]">{j.trade}</Badge>
+                      <span className="text-[11px] text-muted-foreground ml-auto flex items-center gap-1"><Clock className="w-3 h-3" />{getTimeAgo(j.fetchedAt)}</span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={() => unsaveMutation.mutate(job.id)}
-                      className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors"
-                      data-testid={`button-unsave-${job.id}`}
-                    >
+                  <div className="flex flex-col items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => unsaveMutation.mutate(j.id)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors" data-testid={`button-unsave-${j.id}`}>
                       <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
                     </button>
-                    {job.url && (
-                      <a href={job.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md hover:bg-accent transition-colors">
+                    {j.url && (
+                      <a href={j.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md hover:bg-accent transition-colors">
                         <ExternalLink className="w-4 h-4 text-muted-foreground" />
                       </a>
                     )}
                   </div>
+                </div>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground">via {j.source}</span>
+                  <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </CardContent>
             </Card>
           ))
         )}
       </div>
+
+      {/* Detail sheet */}
+      <Sheet open={sheetOpen} onOpenChange={(v) => !v && setSheetOpen(false)}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto" side="right">
+          {job && (
+            <>
+              <SheetHeader className="pb-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <SheetTitle className="text-base leading-snug">{job.title}</SheetTitle>
+                    <p className="text-sm text-muted-foreground mt-1">{job.company}</p>
+                  </div>
+                  {job.isUrgent && <Badge variant="destructive" className="text-[10px] flex-shrink-0"><Zap className="w-3 h-3 mr-0.5" />URGENT</Badge>}
+                </div>
+              </SheetHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50"><MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" /><div><p className="text-[11px] text-muted-foreground">Location</p><p className="text-xs font-medium">{job.location}</p></div></div>
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50"><DollarSign className="w-4 h-4 text-muted-foreground flex-shrink-0" /><div><p className="text-[11px] text-muted-foreground">Pay</p><p className="text-xs font-medium">{job.payRange || "Not listed"}</p></div></div>
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50"><Briefcase className="w-4 h-4 text-muted-foreground flex-shrink-0" /><div><p className="text-[11px] text-muted-foreground">Trade</p><p className="text-xs font-medium">{job.trade}</p></div></div>
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50"><Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" /><div><p className="text-[11px] text-muted-foreground">Posted</p><p className="text-xs font-medium">{getTimeAgo(job.postedAt || job.fetchedAt)}</p></div></div>
+                </div>
+                <div className="flex gap-2">
+                  {job.url && <Button asChild className="flex-1 h-10 text-sm font-semibold"><a href={job.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4 mr-1.5" />Apply Now</a></Button>}
+                  <Button variant="outline" className="h-10" asChild><a href={mapUrl} target="_blank" rel="noopener noreferrer"><Navigation className="w-4 h-4" /></a></Button>
+                  {phone && <Button variant="outline" className="h-10" asChild><a href={`tel:${phone}`}><Phone className="w-4 h-4" /></a></Button>}
+                </div>
+                <Separator />
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Description</h4>
+                  <div className="text-sm leading-relaxed whitespace-pre-line">{job.description || "No description available."}</div>
+                </div>
+                <Separator />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline">{job.trade}</Badge>
+                  {job.workType && <Badge variant="outline">{job.workType}</Badge>}
+                  {job.county && <Badge variant="outline">{job.county} County</Badge>}
+                  <Badge variant="secondary" className="text-[10px]">via {job.source}</Badge>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => handleCopy(job)}>
+                    {copied ? <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-500" /> : <Copy className="w-3.5 h-3.5 mr-1" />}{copied ? "Copied" : "Copy Details"}
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => unsaveMutation.mutate(job.id)}>
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />Remove
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

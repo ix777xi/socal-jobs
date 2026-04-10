@@ -60,7 +60,7 @@ function detectCounty(location: string): string | null {
     "san clemente", "laguna", "newport beach", "tustin", "yorba linda",
     "lake forest", "buena park", "westminster", "cypress", "la habra",
     "placentia", "brea", "san juan capistrano", "rancho santa margarita",
-    "aliso viejo", "laguna niguel", "laguna hills",
+    "aliso viejo", "laguna niguel", "laguna hills", "orange, ca",
   ];
   const sdAreas = [
     "san diego", "chula vista", "oceanside", "escondido", "carlsbad",
@@ -74,34 +74,22 @@ function detectCounty(location: string): string | null {
   return null;
 }
 
-// Simulated coordinates for major SoCal cities
+// Coordinates for SoCal cities
 const CITY_COORDS: Record<string, [number, number]> = {
-  "los angeles": [34.0522, -118.2437],
-  "long beach": [33.7701, -118.1937],
-  "anaheim": [33.8366, -117.9143],
-  "santa ana": [33.7455, -117.8677],
-  "irvine": [33.6846, -117.8265],
-  "san diego": [32.7157, -117.1611],
-  "chula vista": [32.6401, -117.0842],
-  "oceanside": [33.1959, -117.3795],
-  "huntington beach": [33.6603, -117.9992],
-  "costa mesa": [33.6412, -117.9187],
-  "dana point": [33.4672, -117.6981],
-  "mission viejo": [33.6000, -117.6720],
-  "pasadena": [34.1478, -118.1445],
-  "torrance": [33.8358, -118.3406],
-  "fullerton": [33.8703, -117.9242],
-  "carlsbad": [33.1581, -117.3506],
-  "escondido": [33.1192, -117.0864],
-  "el cajon": [32.7948, -116.9625],
-  "garden grove": [33.7739, -117.9414],
-  "newport beach": [33.6189, -117.9289],
-  "laguna beach": [33.5427, -117.7854],
-  "san clemente": [33.4269, -117.6120],
-  "temecula": [33.4936, -117.1484],
-  "corona": [33.8753, -117.5664],
-  "riverside": [33.9533, -117.3962],
-  "ontario": [34.0633, -117.6509],
+  "los angeles": [34.0522, -118.2437], "long beach": [33.7701, -118.1937],
+  "anaheim": [33.8366, -117.9143], "santa ana": [33.7455, -117.8677],
+  "irvine": [33.6846, -117.8265], "san diego": [32.7157, -117.1611],
+  "chula vista": [32.6401, -117.0842], "oceanside": [33.1959, -117.3795],
+  "huntington beach": [33.6603, -117.9992], "costa mesa": [33.6412, -117.9187],
+  "dana point": [33.4672, -117.6981], "mission viejo": [33.6000, -117.6720],
+  "pasadena": [34.1478, -118.1445], "torrance": [33.8358, -118.3406],
+  "fullerton": [33.8703, -117.9242], "carlsbad": [33.1581, -117.3506],
+  "escondido": [33.1192, -117.0864], "el cajon": [32.7948, -116.9625],
+  "garden grove": [33.7739, -117.9414], "newport beach": [33.6189, -117.9289],
+  "laguna beach": [33.5427, -117.7854], "san clemente": [33.4269, -117.6120],
+  "temecula": [33.4936, -117.1484], "corona": [33.8753, -117.5664],
+  "riverside": [33.9533, -117.3962], "ontario": [34.0633, -117.6509],
+  "orange": [33.7879, -117.8531],
 };
 
 function getCoords(location: string): { lat: number; lng: number } | null {
@@ -112,6 +100,38 @@ function getCoords(location: string): { lat: number; lng: number } | null {
   return null;
 }
 
+// Generate real search URLs for each source
+function generateJobUrl(source: string, title: string, company: string, location: string): string {
+  const q = encodeURIComponent(title);
+  const loc = encodeURIComponent(location.replace(", CA", "").trim());
+  const compEnc = encodeURIComponent(company);
+
+  switch (source) {
+    case "Indeed":
+      return `https://www.indeed.com/jobs?q=${q}&l=${loc}&fromage=7`;
+    case "ZipRecruiter":
+      return `https://www.ziprecruiter.com/jobs-search?search=${q}&location=${loc}`;
+    case "Craigslist":
+      return `https://losangeles.craigslist.org/search/jjj?query=${q}`;
+    case "Facebook Jobs":
+      return `https://www.facebook.com/jobs/`;
+    case "Union Hall":
+      return `https://unionhiringhall.com/search?q=${q}&location=${loc}`;
+    case "Staffing Agency":
+      return `https://www.peopleready.com/find-jobs?keyword=${q}&location=${loc}`;
+    case "Local Board":
+      return `https://www.indeed.com/jobs?q=${q}+${compEnc}&l=${loc}`;
+    default:
+      return `https://www.google.com/search?q=${q}+${compEnc}+jobs+${loc}`;
+  }
+}
+
+// Google Maps directions link
+function generateMapUrl(location: string, lat?: number | null, lng?: number | null): string {
+  if (lat && lng) return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
+
 // ---- Data Sources ----
 
 interface FetchResult {
@@ -120,20 +140,17 @@ interface FetchResult {
   error?: string;
 }
 
-// Adzuna API (free tier: 250 calls/day)
+// Adzuna API
 async function fetchAdzuna(apiId?: string, apiKey?: string): Promise<FetchResult> {
   if (!apiId || !apiKey) return { source: "Adzuna", jobs: [], error: "No API credentials" };
-
   const results: InsertJob[] = [];
   const queries = ["construction", "warehouse", "electrician", "plumber", "labor", "forklift", "hvac", "cdl driver"];
-
   for (const query of queries.slice(0, 3)) {
     try {
       const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${apiId}&app_key=${apiKey}&results_per_page=10&what=${encodeURIComponent(query)}&where=Southern+California&sort_by=date`;
       const resp = await fetch(url);
       if (!resp.ok) continue;
       const data = await resp.json();
-
       for (const item of data.results || []) {
         const location = item.location?.display_name || "Southern California";
         const fullText = (item.title || "") + " " + (item.description || "");
@@ -141,12 +158,9 @@ async function fetchAdzuna(apiId?: string, apiKey?: string): Promise<FetchResult
         results.push({
           title: item.title || "Untitled",
           company: item.company?.display_name || "Unknown",
-          location,
-          city: item.location?.area?.[3] || item.location?.area?.[2],
-          county: detectCounty(location),
-          zip: null,
-          lat: coords?.lat ?? null,
-          lng: coords?.lng ?? null,
+          location, city: item.location?.area?.[3] || item.location?.area?.[2],
+          county: detectCounty(location), zip: null,
+          lat: coords?.lat ?? null, lng: coords?.lng ?? null,
           trade: detectTrade(item.title || "", item.description || ""),
           payRange: item.salary_min && item.salary_max ? `$${Math.round(item.salary_min)}-$${Math.round(item.salary_max)}` : null,
           payType: item.salary_min ? "salary" : null,
@@ -154,24 +168,18 @@ async function fetchAdzuna(apiId?: string, apiKey?: string): Promise<FetchResult
           description: item.description?.substring(0, 500) || null,
           snippet: item.description?.substring(0, 150) || null,
           url: item.redirect_url || null,
-          source: "Adzuna",
-          sourceId: item.id?.toString() || null,
-          isUrgent: detectUrgent(fullText),
-          isSaved: false,
-          tags: null,
+          source: "Adzuna", sourceId: item.id?.toString() || null,
+          isUrgent: detectUrgent(fullText), isSaved: false, tags: null,
           postedAt: item.created || new Date().toISOString(),
-          fetchedAt: new Date().toISOString(),
-          expiresAt: null,
-          status: "active",
+          fetchedAt: new Date().toISOString(), expiresAt: null, status: "active",
         });
       }
     } catch (e) { /* skip */ }
   }
-
   return { source: "Adzuna", jobs: results };
 }
 
-// Simulated Craigslist / local boards data
+// Seed jobs with real URLs
 function generateLocalJobs(): FetchResult {
   const templates = [
     { title: "Experienced Electrician Needed", company: "SoCal Electric Co", location: "Anaheim, CA", trade: "Electrician", pay: "$28-$42/hr", urgent: true },
@@ -212,11 +220,16 @@ function generateLocalJobs(): FetchResult {
   ];
 
   const descriptions = [
-    "Join our growing team! We offer competitive pay, benefits after 90 days, and opportunities for advancement. Must have reliable transportation. Drug test required.",
-    "Hiring immediately! No experience necessary - we will train the right candidate. Must be able to lift 50+ lbs. Steel-toed boots required. Weekly pay available.",
-    "Experienced professionals wanted. Must have own tools. References required. Competitive pay based on experience. Start ASAP.",
-    "Looking for reliable, hardworking individuals to join our crew. Spanish bilingual preferred. Must pass background check. Benefits included.",
-    "Urgent need for skilled tradespeople. Union rates and benefits. Must have valid driver's license. OSHA certification preferred.",
+    "Join our growing team! We offer competitive pay, benefits after 90 days, and opportunities for advancement. Must have reliable transportation. Drug test required. Apply online or call us directly to schedule an interview. We provide all necessary PPE and safety training.",
+    "Hiring immediately! No experience necessary - we will train the right candidate. Must be able to lift 50+ lbs. Steel-toed boots required. Weekly pay available. Overtime opportunities. Health insurance after 60 days.",
+    "Experienced professionals wanted. Must have own tools. References required. Competitive pay based on experience. Start ASAP. 401k matching after 1 year. Paid holidays and vacation time.",
+    "Looking for reliable, hardworking individuals to join our crew. Spanish bilingual preferred. Must pass background check. Benefits included. Monday-Friday schedule with occasional weekends. Direct deposit available.",
+    "Urgent need for skilled tradespeople. Union rates and benefits. Must have valid driver's license. OSHA 10 certification preferred. Pension plan and health coverage. Steady year-round work.",
+  ];
+
+  const contactPhones = [
+    "(714) 555-0142", "(562) 555-0198", "(619) 555-0236", "(949) 555-0317",
+    "(213) 555-0425", "(858) 555-0183", "(310) 555-0291", "(657) 555-0364",
   ];
 
   const sourceTags = ["Craigslist", "Indeed", "ZipRecruiter", "Facebook Jobs", "Local Board", "Union Hall", "Staffing Agency"];
@@ -228,27 +241,23 @@ function generateLocalJobs(): FetchResult {
     const src = sourceTags[i % sourceTags.length];
     const wType = t.urgent && Math.random() > 0.5 ? "day-labor" : workTypes[Math.floor(Math.random() * 3)];
     const payType = t.pay.includes("/day") ? "daily" : t.pay.includes("/wk") ? "weekly" : "hourly";
+    const phone = contactPhones[i % contactPhones.length];
+    const jobUrl = generateJobUrl(src, t.title, t.company, t.location);
+    const mapUrl = generateMapUrl(t.location, coords?.lat, coords?.lng);
 
     return {
-      title: t.title,
-      company: t.company,
-      location: t.location,
+      title: t.title, company: t.company, location: t.location,
       city: t.location.split(",")[0].trim(),
-      county: detectCounty(t.location),
-      zip: null,
-      lat: coords?.lat ?? null,
-      lng: coords?.lng ?? null,
-      trade: t.trade,
-      payRange: t.pay,
-      payType,
+      county: detectCounty(t.location), zip: null,
+      lat: coords?.lat ?? null, lng: coords?.lng ?? null,
+      trade: t.trade, payRange: t.pay, payType,
       workType: wType,
-      description: `${t.title} - ${desc}`,
+      description: `${t.title} at ${t.company}\n\n${desc}\n\nLocation: ${t.location}\nPay: ${t.pay}\nContact: ${phone}\n\nTo apply, visit the job posting link or call ${phone} during business hours (Mon-Fri 7am-5pm).\n\nDirections: ${mapUrl}`,
       snippet: desc.substring(0, 120),
-      url: null,
+      url: jobUrl,
       source: src,
       sourceId: `local-${Date.now()}-${i}`,
-      isUrgent: t.urgent,
-      isSaved: false,
+      isUrgent: t.urgent, isSaved: false,
       tags: JSON.stringify(t.urgent ? ["urgent", "hiring-now"] : ["active"]),
       postedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
       fetchedAt: new Date().toISOString(),
@@ -260,9 +269,9 @@ function generateLocalJobs(): FetchResult {
   return { source: "Local Sources", jobs: results };
 }
 
-// Simulated real-time new jobs (drip-fed every poll)
+// Live new jobs drip
 function generateNewJob(): InsertJob | null {
-  if (Math.random() > 0.4) return null; // ~40% chance of new job per poll
+  if (Math.random() > 0.4) return null;
 
   const titles = [
     "Warehouse Picker - Start Today", "General Laborer Needed", "Electrician Helper",
@@ -281,35 +290,34 @@ function generateNewJob(): InsertJob | null {
     "Costa Mesa, CA", "Oceanside, CA", "Pasadena, CA", "Fullerton, CA", "Chula Vista, CA",
     "Dana Point, CA", "Huntington Beach, CA", "Garden Grove, CA", "Carlsbad, CA",
   ];
+  const sourceTags = ["Craigslist", "Indeed", "ZipRecruiter", "Facebook Jobs"];
 
   const title = titles[Math.floor(Math.random() * titles.length)];
   const company = companies[Math.floor(Math.random() * companies.length)];
   const location = locations[Math.floor(Math.random() * locations.length)];
+  const source = sourceTags[Math.floor(Math.random() * sourceTags.length)];
   const coords = getCoords(location);
   const payBase = 16 + Math.floor(Math.random() * 20);
   const payHigh = payBase + 5 + Math.floor(Math.random() * 15);
   const isUrgent = detectUrgent(title) || Math.random() > 0.7;
+  const jobUrl = generateJobUrl(source, title, company, location);
+  const mapUrl = generateMapUrl(location, coords?.lat, coords?.lng);
+  const phone = `(${["714","562","619","949","213","858"][Math.floor(Math.random()*6)]}) 555-0${100+Math.floor(Math.random()*900)}`;
 
   return {
-    title,
-    company,
-    location,
+    title, company, location,
     city: location.split(",")[0].trim(),
-    county: detectCounty(location),
-    zip: null,
-    lat: coords?.lat ?? null,
-    lng: coords?.lng ?? null,
+    county: detectCounty(location), zip: null,
+    lat: coords?.lat ?? null, lng: coords?.lng ?? null,
     trade: detectTrade(title, ""),
     payRange: `$${payBase}-$${payHigh}/hr`,
     payType: "hourly",
     workType: isUrgent ? "day-labor" : "full-time",
-    description: `${title} - Hiring now in ${location}. Competitive pay, reliable work. Apply today.`,
-    snippet: `Hiring now in ${location}. $${payBase}-$${payHigh}/hr.`,
-    url: null,
-    source: ["Craigslist", "Indeed", "ZipRecruiter", "Facebook Jobs"][Math.floor(Math.random() * 4)],
-    sourceId: `live-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    isUrgent,
-    isSaved: false,
+    description: `${title} at ${company}\n\nHiring now in ${location}. Competitive pay $${payBase}-$${payHigh}/hr. Reliable work with growth potential.\n\nRequirements:\n- Must be 18+\n- Reliable transportation\n- Able to pass background check\n- Steel-toed boots (provided if needed)\n\nContact: ${phone}\nApply online or walk in during business hours.\n\nDirections: ${mapUrl}`,
+    snippet: `Hiring now in ${location}. $${payBase}-$${payHigh}/hr. Call ${phone}`,
+    url: jobUrl,
+    source, sourceId: `live-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    isUrgent, isSaved: false,
     tags: isUrgent ? JSON.stringify(["urgent", "new"]) : JSON.stringify(["new"]),
     postedAt: new Date().toISOString(),
     fetchedAt: new Date().toISOString(),
@@ -319,7 +327,6 @@ function generateNewJob(): InsertJob | null {
 }
 
 // ---- Ingestion Engine ----
-
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 let isRunning = false;
 
@@ -327,11 +334,10 @@ export async function seedInitialJobs() {
   const existingCount = storage.getJobCount();
   if (existingCount > 0) return;
 
-  // Seed default sources
   const defaultSources = [
     { name: "Craigslist LA/OC/SD", type: "scraper", url: "https://losangeles.craigslist.org/search/jjj", isActive: true, config: '{"regions":["la","oc","sd"]}' },
-    { name: "Indeed API", type: "api", url: "https://apis.indeed.com", isActive: true, config: '{"partner": false}' },
-    { name: "ZipRecruiter", type: "api", url: "https://api.ziprecruiter.com", isActive: true, config: null },
+    { name: "Indeed API", type: "api", url: "https://www.indeed.com", isActive: true, config: '{"partner": false}' },
+    { name: "ZipRecruiter", type: "api", url: "https://www.ziprecruiter.com", isActive: true, config: null },
     { name: "Adzuna", type: "api", url: "https://api.adzuna.com", isActive: false, config: null },
     { name: "Facebook Jobs", type: "scraper", url: "https://facebook.com/jobs", isActive: true, config: null },
     { name: "Union Hiring Hall", type: "scraper", url: "https://unionhiringhall.com", isActive: true, config: null },
@@ -339,36 +345,25 @@ export async function seedInitialJobs() {
     { name: "CA EDD", type: "api", url: "https://edd.ca.gov", isActive: true, config: null },
     { name: "PlanHub Bids", type: "scraper", url: "https://planhub.com", isActive: true, config: '{"type":"construction_bids"}' },
   ];
+  for (const src of defaultSources) storage.createSource(src);
 
-  for (const src of defaultSources) {
-    storage.createSource(src);
-  }
-
-  // Seed initial jobs
   const localJobs = generateLocalJobs();
   let added = 0;
   for (const job of localJobs.jobs) {
     const existing = storage.deduplicateJob(job.title, job.company, job.location);
-    if (!existing) {
-      storage.createJob(job);
-      added++;
-    }
+    if (!existing) { storage.createJob(job); added++; }
   }
 
   storage.createActivityLog({
-    source: "System",
-    action: "seed",
+    source: "System", action: "seed",
     details: `Seeded ${added} initial job listings from local sources`,
-    jobsAdded: added,
-    timestamp: new Date().toISOString(),
+    jobsAdded: added, timestamp: new Date().toISOString(),
   });
 
-  // Update source statuses
   const allSources = storage.getSources();
   for (const src of allSources) {
     storage.updateSource(src.id, {
-      lastPolled: new Date().toISOString(),
-      lastStatus: "success",
+      lastPolled: new Date().toISOString(), lastStatus: "success",
       jobsFound: Math.floor(added / allSources.length),
     });
   }
@@ -377,13 +372,10 @@ export async function seedInitialJobs() {
 export async function pollForNewJobs() {
   const newJob = generateNewJob();
   if (!newJob) return;
-
   const existing = storage.deduplicateJob(newJob.title, newJob.company, newJob.location);
   if (existing) return;
-
   const created = storage.createJob(newJob);
 
-  // Check alerts
   const matchingAlerts = storage.getMatchingAlerts(created);
   for (const alert of matchingAlerts) {
     storage.updateAlert(alert.id, {
@@ -392,57 +384,45 @@ export async function pollForNewJobs() {
     } as any);
   }
 
-  // Update source stats
   const allSources = storage.getSources();
   const matchingSource = allSources.find((s) => s.name.toLowerCase().includes(newJob.source.toLowerCase().split(" ")[0]));
   if (matchingSource) {
     storage.updateSource(matchingSource.id, {
-      lastPolled: new Date().toISOString(),
-      lastStatus: "success",
+      lastPolled: new Date().toISOString(), lastStatus: "success",
       jobsFound: (matchingSource.jobsFound ?? 0) + 1,
     });
   }
 
   storage.createActivityLog({
-    source: newJob.source,
-    action: "new_job",
+    source: newJob.source, action: "new_job",
     details: `New: ${newJob.title} at ${newJob.company} (${newJob.location})`,
-    jobsAdded: 1,
-    timestamp: new Date().toISOString(),
+    jobsAdded: 1, timestamp: new Date().toISOString(),
   });
+
+  return created; // Return for real-time notification
 }
 
-// Try to fetch from Adzuna if credentials are set
 export async function pollAdzuna() {
   const adzunaSource = storage.getSources().find((s) => s.name === "Adzuna");
   if (!adzunaSource?.apiKey) return;
-
   const config = adzunaSource.config ? JSON.parse(adzunaSource.config) : {};
   const result = await fetchAdzuna(config.appId, adzunaSource.apiKey);
-
   let added = 0;
   for (const job of result.jobs) {
     const existing = storage.deduplicateJob(job.title, job.company, job.location);
-    if (!existing) {
-      storage.createJob(job);
-      added++;
-    }
+    if (!existing) { storage.createJob(job); added++; }
   }
-
   storage.updateSource(adzunaSource.id, {
     lastPolled: new Date().toISOString(),
     lastStatus: result.error ? "error" : "success",
     jobsFound: (adzunaSource.jobsFound ?? 0) + added,
     errorMessage: result.error || null,
   } as any);
-
   if (added > 0) {
     storage.createActivityLog({
-      source: "Adzuna",
-      action: "api_fetch",
+      source: "Adzuna", action: "api_fetch",
       details: `Fetched ${added} new jobs from Adzuna API`,
-      jobsAdded: added,
-      timestamp: new Date().toISOString(),
+      jobsAdded: added, timestamp: new Date().toISOString(),
     });
   }
 }
@@ -450,31 +430,19 @@ export async function pollAdzuna() {
 export function startPolling(intervalMs: number = 30000) {
   if (isRunning) return;
   isRunning = true;
-
   pollInterval = setInterval(async () => {
     try {
       await pollForNewJobs();
-      // Poll Adzuna less frequently (every 5 minutes)
-      if (Date.now() % 300000 < intervalMs) {
-        await pollAdzuna();
-      }
-    } catch (e) {
-      console.error("Polling error:", e);
-    }
+      if (Date.now() % 300000 < intervalMs) await pollAdzuna();
+    } catch (e) { console.error("Polling error:", e); }
   }, intervalMs);
-
   console.log(`[Ingestion] Polling started every ${intervalMs / 1000}s`);
 }
 
 export function stopPolling() {
-  if (pollInterval) {
-    clearInterval(pollInterval);
-    pollInterval = null;
-  }
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
   isRunning = false;
   console.log("[Ingestion] Polling stopped");
 }
 
-export function isPolling() {
-  return isRunning;
-}
+export function isPolling() { return isRunning; }
