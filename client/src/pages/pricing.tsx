@@ -27,7 +27,7 @@ export default function PricingPage() {
       const res = await apiRequest("POST", "/api/stripe/create-checkout");
       const { url } = await res.json();
       if (url) {
-        window.open(url, "_blank");
+        window.location.href = url;
       }
     } catch (err: any) {
       toast({ title: "Could not start checkout", variant: "destructive" });

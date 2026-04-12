@@ -20,18 +20,19 @@ export default function AccountPage() {
 
   // Handle redirects: Google OAuth success + Stripe checkout success
   useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
+    const hashParams = new URLSearchParams(window.location.hash.split("?")[1] || "");
+    const urlParams = new URLSearchParams(window.location.search);
 
-    // Google OAuth redirect
-    if (params.get("google") === "success") {
+    // Google OAuth redirect (comes via search: /?auth=google_success#/account)
+    if (urlParams.get("auth") === "google_success" || hashParams.get("google") === "success") {
       refresh().then(() => {
         toast({ title: "Signed in with Google" });
       });
       window.history.replaceState(null, "", window.location.pathname + "#/account");
     }
 
-    // Stripe checkout redirect
-    const sessionId = params.get("session_id");
+    // Stripe checkout redirect (comes via search: /?checkout_session=xxx#/account)
+    const sessionId = urlParams.get("checkout_session") || hashParams.get("session_id");
     if (sessionId) {
       apiRequest("GET", `/api/stripe/verify-session?session_id=${sessionId}`)
         .then((res) => res.json())
@@ -42,6 +43,7 @@ export default function AccountPage() {
           }
         })
         .catch(() => {});
+      // Clean up URL
       window.history.replaceState(null, "", window.location.pathname + "#/account");
     }
   }, []);
@@ -67,7 +69,7 @@ export default function AccountPage() {
   // Don't redirect during initial load or Google OAuth redirect
   const isRedirecting = useRef(false);
   useEffect(() => {
-    if (!loading && !user && !window.location.hash.includes("google=success")) {
+    if (!loading && !user && !window.location.search.includes("auth=google_success") && !window.location.search.includes("checkout_session")) {
       isRedirecting.current = true;
       setLocation("/auth");
     }

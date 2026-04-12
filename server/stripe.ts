@@ -98,7 +98,7 @@ export function registerStripeRoutes(app: Express) {
 
       // Build success/cancel URLs
       const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
-      const successUrl = `${origin}/#/account?session_id={CHECKOUT_SESSION_ID}`;
+      const successUrl = `${origin}/?checkout_session={CHECKOUT_SESSION_ID}#/account`;
       const cancelUrl = `${origin}/#/pricing`;
 
       const session = await stripe!.checkout.sessions.create({
