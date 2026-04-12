@@ -42,16 +42,9 @@ export default function AuthPage() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Handle Google OAuth redirect back (check for ?google=success in hash)
+  // Handle Google OAuth error redirect
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes("google=success")) {
-      // Clean up the URL
-      window.location.hash = "#/";
-      refresh().then(() => {
-        toast({ title: "Signed in with Google" });
-      });
-    }
     if (hash.includes("error=google_failed")) {
       window.location.hash = "#/auth";
       toast({ title: "Google sign-in failed. Please try again.", variant: "destructive" });
@@ -69,7 +62,7 @@ export default function AuthPage() {
         await register(email, password, name || undefined);
         toast({ title: "Account created" });
       }
-      setLocation("/");
+      setLocation("/account");
     } catch (err: any) {
       const msg = err.message?.includes(":")
         ? err.message.split(":").slice(1).join(":").trim()
@@ -99,10 +92,10 @@ export default function AuthPage() {
               <path d="M8 14h16M8 18h12M8 22h8" stroke="hsl(24 95% 50%)" strokeWidth="2" strokeLinecap="round" />
               <circle cx="24" cy="12" r="3" fill="hsl(24 95% 50%)" />
             </svg>
-            <h1 className="text-xl font-bold">SoCal Jobs</h1>
+            <h1 className="text-xl font-bold">Orange Blue Collar Jobs</h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Blue-collar job aggregator for Southern California
+            SoCal blue-collar job board
           </p>
         </div>
 

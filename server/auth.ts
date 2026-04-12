@@ -167,7 +167,7 @@ export function registerAuthRoutes(app: Express) {
             if (err) {
               console.error("[Auth] Session save error:", err);
             }
-            res.redirect("/#/?google=success");
+            res.redirect("/#/account?google=success");
           });
         } else {
           res.redirect("/#/auth?error=google_failed");

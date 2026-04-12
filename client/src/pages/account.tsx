@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,23 @@ import {
 
 export default function AccountPage() {
   const [, setLocation] = useLocation();
-  const { user, isPro, logout, refresh } = useAuth();
+  const { user, isPro, logout, refresh, loading } = useAuth();
   const { toast } = useToast();
   const [portalLoading, setPortalLoading] = useState(false);
 
-  // Check for Stripe checkout redirect
+  // Handle redirects: Google OAuth success + Stripe checkout success
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.split("?")[1] || "");
+
+    // Google OAuth redirect
+    if (params.get("google") === "success") {
+      refresh().then(() => {
+        toast({ title: "Signed in with Google" });
+      });
+      window.history.replaceState(null, "", window.location.pathname + "#/account");
+    }
+
+    // Stripe checkout redirect
     const sessionId = params.get("session_id");
     if (sessionId) {
       apiRequest("GET", `/api/stripe/verify-session?session_id=${sessionId}`)
@@ -32,7 +42,6 @@ export default function AccountPage() {
           }
         })
         .catch(() => {});
-      // Clean up URL
       window.history.replaceState(null, "", window.location.pathname + "#/account");
     }
   }, []);
@@ -55,10 +64,28 @@ export default function AccountPage() {
     setLocation("/auth");
   }
 
-  if (!user) {
-    setLocation("/auth");
-    return null;
+  // Don't redirect during initial load or Google OAuth redirect
+  const isRedirecting = useRef(false);
+  useEffect(() => {
+    if (!loading && !user && !window.location.hash.includes("google=success")) {
+      isRedirecting.current = true;
+      setLocation("/auth");
+    }
+  }, [user, loading]);
+
+  if (loading || (!user && !isRedirecting.current)) {
+    return (
+      <div className="p-4 md:p-6 max-w-2xl mx-auto">
+        <div className="space-y-5 animate-pulse">
+          <div className="h-6 w-32 bg-muted rounded" />
+          <div className="h-40 bg-muted rounded-lg" />
+          <div className="h-40 bg-muted rounded-lg" />
+        </div>
+      </div>
+    );
   }
+
+  if (!user) return null;
 
   const subEnd = user.subscriptionEnd ? new Date(user.subscriptionEnd) : null;
 
