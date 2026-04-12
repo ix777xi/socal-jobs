@@ -3,7 +3,7 @@ import type { Server } from "http";
 import session from "express-session";
 import { storage } from "./storage";
 import { insertAlertSchema, postJobSchema } from "@shared/schema";
-import { seedInitialJobs, startPolling, stopPolling, isPolling, pollForNewJobs } from "./ingestion";
+import { seedInitialJobs, startPolling, stopPolling, isPolling, pollForNewJobs, triggerManualFetch } from "./ingestion";
 import { registerAuthRoutes, requireAuth, requireSubscription, requireAdmin, getSessionUser } from "./auth";
 import { registerStripeRoutes } from "./stripe";
 
@@ -268,6 +268,53 @@ export async function registerRoutes(server: Server, app: Express) {
       subscriptionStatus: updated!.subscriptionStatus,
       isAdmin: updated!.isAdmin,
     });
+  });
+
+  // ---- Admin: Source Management ----
+  app.get("/api/admin/sources", requireAdmin, (_req, res) => {
+    res.json(storage.getSources());
+  });
+
+  app.patch("/api/admin/sources/:id", requireAdmin, (req, res) => {
+    const sourceId = parseInt(req.params.id);
+    const source = storage.getSource(sourceId);
+    if (!source) return res.status(404).json({ error: "Source not found" });
+
+    const { isActive, apiKey, config, name, url } = req.body;
+    const updates: any = {};
+    if (isActive !== undefined) updates.isActive = isActive;
+    if (apiKey !== undefined) updates.apiKey = apiKey;
+    if (config !== undefined) updates.config = config;
+    if (name !== undefined) updates.name = name;
+    if (url !== undefined) updates.url = url;
+
+    const updated = storage.updateSource(sourceId, updates);
+    res.json(updated);
+  });
+
+  // Admin: trigger manual fetch from all APIs
+  app.post("/api/admin/fetch-jobs", requireAdmin, async (_req, res) => {
+    try {
+      const result = await triggerManualFetch();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Admin: add a new source
+  app.post("/api/admin/sources", requireAdmin, (req, res) => {
+    const { name, type, url, apiKey, isActive, config } = req.body;
+    if (!name || !type) return res.status(400).json({ error: "name and type required" });
+    const source = storage.createSource({
+      name,
+      type,
+      url: url || null,
+      apiKey: apiKey || null,
+      isActive: isActive !== false,
+      config: config || null,
+    });
+    res.json(source);
   });
 
   // ---- Ingestion Controls ----

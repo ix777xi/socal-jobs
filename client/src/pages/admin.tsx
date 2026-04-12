@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +14,9 @@ import { useLocation } from "wouter";
 import {
   Shield, Users, Settings, ToggleLeft, Crown,
   Lock, UserCheck, UserX, Mail, Calendar,
+  Database, Key, RefreshCw, Wifi, WifiOff,
+  Eye, EyeOff, Loader2, CheckCircle2, XCircle,
+  Zap,
 } from "lucide-react";
 
 interface AdminUser {
@@ -31,6 +36,21 @@ interface SiteSetting {
   updatedAt: string;
 }
 
+interface SourceRecord {
+  id: number;
+  name: string;
+  type: string;
+  url: string | null;
+  apiKey: string | null;
+  isActive: boolean;
+  lastPolled: string | null;
+  lastStatus: string | null;
+  jobsFound: number | null;
+  errorMessage: string | null;
+  config: string | null;
+}
+
+// ---- Paywall Toggle ----
 function PaywallToggle() {
   const { toast } = useToast();
   const { refresh } = useAuth();
@@ -56,7 +76,6 @@ function PaywallToggle() {
     },
     onSuccess: (_, enabled) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
-      // Force re-fetch site settings so auth context updates
       queryClient.invalidateQueries({ queryKey: ["/api/site-settings/public"] });
       refresh();
       toast({
@@ -116,6 +135,289 @@ function PaywallToggle() {
   );
 }
 
+// ---- Source Management ----
+function SourceManagement() {
+  const { toast } = useToast();
+  const [editingKeyId, setEditingKeyId] = useState<number | null>(null);
+  const [keyInput, setKeyInput] = useState("");
+  const [showKeys, setShowKeys] = useState<Set<number>>(new Set());
+
+  const { data: sources = [], isLoading } = useQuery<SourceRecord[]>({
+    queryKey: ["/api/admin/sources"],
+    queryFn: async () => {
+      const resp = await apiRequest("GET", "/api/admin/sources");
+      return resp.json();
+    },
+  });
+
+  const updateSourceMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: any }) => {
+      const resp = await apiRequest("PATCH", `/api/admin/sources/${id}`, updates);
+      return resp.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sources"] });
+      toast({ title: "Source updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const fetchJobsMutation = useMutation({
+    mutationFn: async () => {
+      const resp = await apiRequest("POST", "/api/admin/fetch-jobs");
+      return resp.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sources"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
+      toast({
+        title: `Fetched ${data.totalAdded} new jobs`,
+        description: data.results?.join(" | ") || "Fetch complete",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Fetch failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const toggleKeyVisibility = (id: number) => {
+    const next = new Set(showKeys);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setShowKeys(next);
+  };
+
+  const saveApiKey = (id: number) => {
+    updateSourceMutation.mutate({ id, updates: { apiKey: keyInput } });
+    setEditingKeyId(null);
+    setKeyInput("");
+  };
+
+  const apiSources = sources.filter(s => s.type === "api");
+  const otherSources = sources.filter(s => s.type !== "api");
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-4">
+          <div className="space-y-3 animate-pulse">
+            {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted rounded" />)}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Manual Fetch Button */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            Job Ingestion
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Fetch Jobs Now</p>
+              <p className="text-xs text-muted-foreground">
+                Trigger an immediate fetch from all active API sources.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => fetchJobsMutation.mutate()}
+              disabled={fetchJobsMutation.isPending}
+              data-testid="button-fetch-jobs"
+            >
+              {fetchJobsMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-1" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-1" />
+              )}
+              {fetchJobsMutation.isPending ? "Fetching..." : "Fetch Now"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API Sources */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Database className="w-4 h-4" />
+            API Sources ({apiSources.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y divide-border">
+            {apiSources.map(src => (
+              <div key={src.id} className="px-4 py-3 space-y-2" data-testid={`source-${src.id}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {src.isActive ? (
+                      <Wifi className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <WifiOff className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <span className="text-sm font-medium truncate">{src.name}</span>
+                    <Badge
+                      variant={src.lastStatus === "success" ? "default" : src.lastStatus === "error" ? "destructive" : "secondary"}
+                      className="text-[9px] px-1.5 py-0 h-4 flex-shrink-0"
+                    >
+                      {src.lastStatus || "pending"}
+                    </Badge>
+                    {(src.jobsFound ?? 0) > 0 && (
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                        {src.jobsFound} jobs
+                      </span>
+                    )}
+                  </div>
+                  <Switch
+                    checked={src.isActive}
+                    onCheckedChange={(checked) =>
+                      updateSourceMutation.mutate({ id: src.id, updates: { isActive: checked } })
+                    }
+                    data-testid={`switch-source-${src.id}`}
+                  />
+                </div>
+
+                {/* API Key Row */}
+                <div className="flex items-center gap-2">
+                  <Key className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                  {editingKeyId === src.id ? (
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <Input
+                        type="text"
+                        placeholder="Enter API key..."
+                        value={keyInput}
+                        onChange={(e) => setKeyInput(e.target.value)}
+                        className="h-7 text-xs flex-1"
+                        autoFocus
+                        data-testid={`input-apikey-${src.id}`}
+                      />
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-7 text-xs px-2"
+                        onClick={() => saveApiKey(src.id)}
+                        data-testid={`button-save-key-${src.id}`}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs px-2"
+                        onClick={() => { setEditingKeyId(null); setKeyInput(""); }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      {src.apiKey ? (
+                        <>
+                          <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded truncate max-w-[200px]">
+                            {showKeys.has(src.id) ? src.apiKey : "••••••••" + (src.apiKey?.slice(-4) || "")}
+                          </code>
+                          <button
+                            onClick={() => toggleKeyVisibility(src.id)}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            {showKeys.has(src.id) ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">No API key set</span>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-[10px] px-1.5 ml-auto"
+                        onClick={() => {
+                          setEditingKeyId(src.id);
+                          setKeyInput(src.apiKey || "");
+                        }}
+                        data-testid={`button-edit-key-${src.id}`}
+                      >
+                        {src.apiKey ? "Change" : "Add Key"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Last polled + errors */}
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                  {src.lastPolled && (
+                    <span>
+                      Last fetched: {new Date(src.lastPolled).toLocaleString()}
+                    </span>
+                  )}
+                  {src.errorMessage && (
+                    <span className="text-destructive flex items-center gap-1">
+                      <XCircle className="w-3 h-3" />
+                      {src.errorMessage}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Other Sources */}
+      {otherSources.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Database className="w-4 h-4" />
+              Other Sources ({otherSources.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {otherSources.map(src => (
+                <div key={src.id} className="flex items-center justify-between px-4 py-2.5" data-testid={`source-${src.id}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {src.isActive ? (
+                      <Wifi className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <WifiOff className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <span className="text-sm truncate">{src.name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">
+                      {src.type}
+                    </Badge>
+                    {(src.jobsFound ?? 0) > 0 && (
+                      <span className="text-[10px] text-muted-foreground">{src.jobsFound} jobs</span>
+                    )}
+                  </div>
+                  <Switch
+                    checked={src.isActive}
+                    onCheckedChange={(checked) =>
+                      updateSourceMutation.mutate({ id: src.id, updates: { isActive: checked } })
+                    }
+                    data-testid={`switch-source-${src.id}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ---- User Management ----
 function UserManagement() {
   const { toast } = useToast();
 
@@ -220,6 +522,7 @@ function UserManagement() {
   );
 }
 
+// ---- Main Admin Page ----
 export default function AdminPage() {
   const { user, isAdmin } = useAuth();
   const [, setLocation] = useLocation();
@@ -250,10 +553,11 @@ export default function AdminPage() {
           <Shield className="w-5 h-5" />
           Admin Panel
         </h2>
-        <p className="text-xs text-muted-foreground">Manage site settings, users, and subscriptions.</p>
+        <p className="text-xs text-muted-foreground">Manage site settings, job sources, users, and subscriptions.</p>
       </div>
 
       <PaywallToggle />
+      <SourceManagement />
       <UserManagement />
     </div>
   );
