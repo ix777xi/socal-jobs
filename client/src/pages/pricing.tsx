@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Check, X, Crown, Briefcase, Bell, Bookmark, MapPin,
-  ExternalLink, BarChart3, Zap, Loader2, Shield,
+  ExternalLink, BarChart3, Zap, Loader2, Shield, ClipboardList, TrendingUp,
 } from "lucide-react";
 
 export default function PricingPage() {
@@ -37,33 +37,31 @@ export default function PricingPage() {
   }
 
   const freeFeatures = [
-    { text: "Browse up to 8 job listings", included: true },
+    { text: "Browse up to 8 listings", included: true },
     { text: "Basic job info (title, company, location)", included: true },
     { text: "Trade & county filters", included: true },
-    { text: "Source monitoring dashboard", included: true },
-    { text: "Full job descriptions", included: false },
-    { text: "Direct apply links", included: false },
+    { text: "Full job descriptions & direct links", included: false },
+    { text: "Application Tracker", included: false },
+    { text: "Salary Insights & Market Data", included: false },
     { text: "Save & bookmark jobs", included: false },
-    { text: "Job alerts with live preview", included: false },
+    { text: "Smart job alerts", included: false },
     { text: "Unlimited listings", included: false },
-    { text: "Google Maps directions", included: false },
     { text: "Copy & share job details", included: false },
-    { text: "Stats & charts", included: false },
+    { text: "Post jobs", included: false },
   ];
 
   const proFeatures = [
-    { text: "Unlimited job listings", included: true },
-    { text: "Full job descriptions & details", included: true },
-    { text: "Direct apply links to job boards", included: true },
-    { text: "Save & bookmark favorite jobs", included: true },
-    { text: "Job alerts with live match preview", included: true },
-    { text: "Google Maps directions to job sites", included: true },
-    { text: "Copy & share job details", included: true },
-    { text: "Interactive stats & charts", included: true },
-    { text: "All 9 data sources, 20 trades", included: true },
-    { text: "Real-time 30s polling", included: true },
-    { text: "Urgent job notifications", included: true },
-    { text: "Priority support", included: true },
+    { text: "Unlimited listings", included: true, highlight: false },
+    { text: "Full descriptions + direct apply links", included: true, highlight: false },
+    { text: "Application Tracker", included: true, highlight: true },
+    { text: "Salary Insights & Market Data", included: true, highlight: true },
+    { text: "Smart job alerts", included: true, highlight: false },
+    { text: "Save & bookmark jobs", included: true, highlight: false },
+    { text: "Post jobs", included: true, highlight: false },
+    { text: "Copy & share job details", included: true, highlight: false },
+    { text: "Interactive stats", included: true, highlight: false },
+    { text: "Real-time updates", included: true, highlight: false },
+    { text: "Priority support", included: true, highlight: false },
   ];
 
   return (
@@ -146,9 +144,14 @@ export default function PricingPage() {
             <CardContent className="pt-4">
               <ul className="space-y-2.5">
                 {proFeatures.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
+                  <li key={i} className={`flex items-start gap-2 text-sm ${f.highlight ? "font-semibold" : ""}`}>
                     <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>{f.text}</span>
+                    <span className={f.highlight ? "text-foreground" : ""}>
+                      {f.highlight && f.text === "Application Tracker" && <ClipboardList className="w-3.5 h-3.5 inline mr-1 text-primary" />}
+                      {f.highlight && f.text === "Salary Insights & Market Data" && <TrendingUp className="w-3.5 h-3.5 inline mr-1 text-primary" />}
+                      {f.text}
+                      {f.highlight && <span className="ml-1.5 text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">NEW</span>}
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -2,12 +2,13 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, like, and, or, sql } from "drizzle-orm";
 import {
-  users, jobs, alerts, sources, activityLog, siteSettings,
+  users, jobs, alerts, sources, activityLog, siteSettings, applications,
   type User, type InsertUser,
   type Job, type InsertJob,
   type Alert, type InsertAlert,
   type Source, type InsertSource,
   type ActivityLog, type InsertActivityLog,
+  type Application, type InsertApplication,
 } from "@shared/schema";
 
 const sqlite = new Database("data.db");
@@ -95,6 +96,19 @@ sqlite.exec(`
     jobs_added INTEGER DEFAULT 0,
     timestamp TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS applications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    job_id INTEGER,
+    job_title TEXT NOT NULL,
+    company TEXT NOT NULL,
+    location TEXT,
+    status TEXT NOT NULL DEFAULT 'applied',
+    applied_at TEXT NOT NULL,
+    notes TEXT,
+    follow_up_date TEXT,
+    url TEXT
+  );
 `);
 
 // Migrate: add new columns if they don't exist
@@ -141,36 +155,14 @@ try {
 // Auto-promote admin
 sqlite.exec(`UPDATE users SET is_admin = 1 WHERE email = 'calebj7walker@gmail.com'`);
 
-// One-time cleanup: remove fake 555 phone numbers from API-sourced job descriptions
+// Purge all fake/generated jobs (seed + drip) — keep only real API data and user posts
 try {
-  sqlite.exec(`
-    UPDATE jobs
-    SET description = REPLACE(
-      REPLACE(
-        REPLACE(description, 'Contact: ' || SUBSTR(description, INSTR(description, '555-'), -14) || CHAR(10), ''),
-        'Call ', ''
-      ),
-      description, description
-    )
-    WHERE posted_by_user_id IS NULL
-    AND description LIKE '%555-%'
-  `);
-  // Strip fake 555 phone numbers and directions from API-sourced jobs
-  const dirtyJobs = sqlite.prepare(`SELECT id, description, snippet FROM jobs WHERE posted_by_user_id IS NULL AND (description LIKE '%555-%' OR snippet LIKE '%555-%' OR description LIKE '%Directions:%')`).all() as any[];
-  const updateStmt = sqlite.prepare(`UPDATE jobs SET description = ?, snippet = ? WHERE id = ?`);
-  for (const job of dirtyJobs) {
-    let desc = job.description || "";
-    let snippet = job.snippet || "";
-    // Remove lines with fake 555 phone numbers
-    desc = desc.replace(/\n?.*\(\d{3}\)\s*555-\d{4}.*/g, "");
-    desc = desc.replace(/Contact:\s*$/gm, "").trim();
-    // Remove Directions: lines with Google Maps URLs
-    desc = desc.replace(/\n?Directions:.*$/gm, "").trim();
-    snippet = snippet.replace(/Call\s*\(\d{3}\)\s*555-\d{4}/g, "").trim();
-    updateStmt.run(desc, snippet, job.id);
-  }
-  if (dirtyJobs.length > 0) {
-    console.log(`[Storage] Cleaned ${dirtyJobs.length} job descriptions (fake phones/directions)`);
+  const fakeCount = sqlite.prepare(
+    `SELECT COUNT(*) as cnt FROM jobs WHERE source_id LIKE 'local-%' OR source_id LIKE 'live-%'`
+  ).get() as any;
+  if (fakeCount?.cnt > 0) {
+    sqlite.exec(`DELETE FROM jobs WHERE source_id LIKE 'local-%' OR source_id LIKE 'live-%'`);
+    console.log(`[Storage] Purged ${fakeCount.cnt} fake/generated job listings`);
   }
 } catch (e) {
   // Ignore if already cleaned
@@ -231,6 +223,13 @@ export interface IStorage {
   getSetting(key: string): string | undefined;
   setSetting(key: string, value: string): void;
   getAllSettings(): { key: string; value: string; updatedAt: string }[];
+
+  // Applications
+  getApplicationsByUser(userId: number): Application[];
+  createApplication(data: InsertApplication): Application;
+  updateApplication(id: number, data: Partial<InsertApplication>): Application | undefined;
+  deleteApplication(id: number): void;
+  getApplicationStats(userId: number): { status: string; count: number }[];
 
   // Admin
   getAllUsers(): User[];
@@ -491,6 +490,32 @@ export class SqliteStorage implements IStorage {
 
   getAllSettings(): { key: string; value: string; updatedAt: string }[] {
     return db.select({ key: siteSettings.key, value: siteSettings.value, updatedAt: siteSettings.updatedAt }).from(siteSettings).all();
+  }
+
+  // Applications
+  getApplicationsByUser(userId: number): Application[] {
+    return db.select().from(applications).where(eq(applications.userId, userId)).orderBy(desc(applications.appliedAt)).all();
+  }
+
+  createApplication(data: InsertApplication): Application {
+    return db.insert(applications).values(data).returning().get();
+  }
+
+  updateApplication(id: number, data: Partial<InsertApplication>): Application | undefined {
+    return db.update(applications).set(data).where(eq(applications.id, id)).returning().get();
+  }
+
+  deleteApplication(id: number): void {
+    db.delete(applications).where(eq(applications.id, id)).run();
+  }
+
+  getApplicationStats(userId: number): { status: string; count: number }[] {
+    return db
+      .select({ status: applications.status, count: sql<number>`count(*)` })
+      .from(applications)
+      .where(eq(applications.userId, userId))
+      .groupBy(applications.status)
+      .all();
   }
 
   // Admin

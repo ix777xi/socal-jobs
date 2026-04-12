@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import {
   Briefcase, Bell, Settings, Bookmark,
   Menu, X, Sun, Moon, Zap, Crown, User, LogIn, PlusCircle, Shield,
+  ClipboardList, TrendingUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Dashboard from "./pages/dashboard";
@@ -19,6 +20,8 @@ import PricingPage from "./pages/pricing";
 import AccountPage from "./pages/account";
 import PostJobPage from "./pages/post-job";
 import AdminPage from "./pages/admin";
+import TrackerPage from "./pages/tracker";
+import InsightsPage from "./pages/insights";
 import NotFound from "./pages/not-found";
 
 function AppLayout() {
@@ -48,6 +51,8 @@ function AppLayout() {
 
   const navItems = [
     { href: "/", label: "Jobs Feed", icon: Briefcase },
+    { href: "/tracker", label: "Tracker", icon: ClipboardList, pro: true },
+    { href: "/insights", label: "Salary Insights", icon: TrendingUp, pro: true },
     { href: "/post-job", label: "Post a Job", icon: PlusCircle, pro: true },
     { href: "/saved", label: "Saved", icon: Bookmark, pro: true },
     { href: "/alerts", label: "Alerts", icon: Bell, pro: true },
@@ -218,6 +223,8 @@ function AppLayout() {
       <main className="flex-1 overflow-y-auto overscroll-contain">
         <Switch>
           <Route path="/" component={Dashboard} />
+          <Route path="/tracker" component={TrackerPage} />
+          <Route path="/insights" component={InsightsPage} />
           <Route path="/post-job" component={PostJobPage} />
           <Route path="/admin" component={AdminPage} />
           <Route path="/saved" component={SavedPage} />

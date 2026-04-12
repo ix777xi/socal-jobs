@@ -124,38 +124,6 @@ const SOCAL_LOCATIONS = [
   "Santa Ana, CA", "Ontario, CA",
 ];
 
-// Generate real search URLs for each source
-function generateJobUrl(source: string, title: string, company: string, location: string): string {
-  const q = encodeURIComponent(title);
-  const loc = encodeURIComponent(location.replace(", CA", "").trim());
-  const compEnc = encodeURIComponent(company);
-
-  switch (source) {
-    case "Indeed":
-      return `https://www.indeed.com/jobs?q=${q}&l=${loc}&fromage=7`;
-    case "ZipRecruiter":
-      return `https://www.ziprecruiter.com/jobs-search?search=${q}&location=${loc}`;
-    case "Craigslist":
-      return `https://losangeles.craigslist.org/search/jjj?query=${q}`;
-    case "Facebook Jobs":
-      return `https://www.facebook.com/jobs/`;
-    case "Union Hall":
-      return `https://unionhiringhall.com/search?q=${q}&location=${loc}`;
-    case "Staffing Agency":
-      return `https://www.peopleready.com/find-jobs?keyword=${q}&location=${loc}`;
-    case "Local Board":
-      return `https://www.indeed.com/jobs?q=${q}+${compEnc}&l=${loc}`;
-    default:
-      return `https://www.google.com/search?q=${q}+${compEnc}+jobs+${loc}`;
-  }
-}
-
-// Google Maps directions link
-function generateMapUrl(location: string, lat?: number | null, lng?: number | null): string {
-  if (lat && lng) return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-}
-
 // ---- Helper: check if a location is in SoCal ----
 function isSoCalLocation(location: string): boolean {
   const loc = location.toLowerCase();
@@ -497,148 +465,6 @@ async function fetchAdzuna(): Promise<FetchResult> {
   return { source: "Adzuna", jobs: results };
 }
 
-// ============================================================
-// Seed jobs with real URLs (fallback local data)
-// ============================================================
-function generateLocalJobs(): FetchResult {
-  const templates = [
-    { title: "Experienced Electrician Needed", company: "SoCal Electric Co", location: "Anaheim, CA", trade: "Electrician", pay: "$28-$42/hr", urgent: true },
-    { title: "Warehouse Workers - Immediate Start", company: "Pacific Distribution", location: "Long Beach, CA", trade: "Warehouse", pay: "$18-$22/hr", urgent: true },
-    { title: "CDL Class A Driver", company: "Harbor Freight Lines", location: "San Diego, CA", trade: "Trucking/CDL", pay: "$1,200-$1,800/wk", urgent: false },
-    { title: "HVAC Technician - Residential", company: "Cool Air Systems", location: "Irvine, CA", trade: "HVAC", pay: "$30-$45/hr", urgent: false },
-    { title: "Concrete Finisher", company: "All Pro Concrete", location: "Costa Mesa, CA", trade: "Concrete", pay: "$25-$35/hr", urgent: false },
-    { title: "Landscaping Crew Lead", company: "Green Valley Landscaping", location: "Dana Point, CA", trade: "Landscaping", pay: "$20-$28/hr", urgent: false },
-    { title: "Forklift Operator - Night Shift", company: "Amazon Fulfillment", location: "Ontario, CA", trade: "Forklift", pay: "$19-$24/hr", urgent: true },
-    { title: "Plumber Journeyman", company: "Roto-Rooter", location: "Pasadena, CA", trade: "Plumbing", pay: "$32-$48/hr", urgent: false },
-    { title: "Framing Carpenter", company: "Summit Construction", location: "Oceanside, CA", trade: "Carpentry", pay: "$26-$38/hr", urgent: false },
-    { title: "General Labor - Construction Site", company: "Turner Build Group", location: "Los Angeles, CA", trade: "Construction", pay: "$18-$25/hr", urgent: true },
-    { title: "Welder/Fabricator - TIG/MIG", company: "SoCal Welding Works", location: "Santa Ana, CA", trade: "Welding", pay: "$28-$40/hr", urgent: false },
-    { title: "Painter - Commercial", company: "Premier Painting", location: "Huntington Beach, CA", trade: "Painting", pay: "$22-$32/hr", urgent: false },
-    { title: "Roofer - Experienced", company: "Top Notch Roofing", location: "Carlsbad, CA", trade: "Roofing", pay: "$24-$36/hr", urgent: true },
-    { title: "Auto Mechanic - ASE Certified", company: "Quick Fix Auto", location: "El Cajon, CA", trade: "Auto Mechanic", pay: "$25-$40/hr", urgent: false },
-    { title: "Moving Crew - Same Day Pay", company: "Two Men and a Truck", location: "Fullerton, CA", trade: "Moving", pay: "$16-$22/hr", urgent: true },
-    { title: "Janitorial - Office Buildings", company: "Clean Sweep Services", location: "Irvine, CA", trade: "Cleaning/Janitorial", pay: "$17-$21/hr", urgent: false },
-    { title: "Demolition Worker", company: "Demo Kings LLC", location: "Riverside, CA", trade: "Demolition", pay: "$20-$30/hr", urgent: false },
-    { title: "Tile Installer", company: "Precision Tile & Stone", location: "Newport Beach, CA", trade: "Flooring", pay: "$25-$40/hr", urgent: false },
-    { title: "Masonry Worker - Block/Brick", company: "Heritage Masonry", location: "San Diego, CA", trade: "Masonry", pay: "$24-$36/hr", urgent: false },
-    { title: "Day Laborer - Cash Pay", company: "Various Contractors", location: "Los Angeles, CA", trade: "General Labor", pay: "$150-$200/day", urgent: true },
-    { title: "Apprentice Electrician", company: "IBEW Local 441", location: "Orange, CA", trade: "Electrician", pay: "$18-$24/hr", urgent: false },
-    { title: "Warehouse Associate - Weekly Pay", company: "FedEx Ground", location: "San Diego, CA", trade: "Warehouse", pay: "$17-$21/hr", urgent: false },
-    { title: "Heavy Equipment Operator", company: "Granite Construction", location: "Escondido, CA", trade: "Construction", pay: "$30-$45/hr", urgent: false },
-    { title: "HVAC Installer Helper", company: "Comfort Zone HVAC", location: "Mission Viejo, CA", trade: "HVAC", pay: "$18-$25/hr", urgent: true },
-    { title: "Plumber's Helper - No Experience OK", company: "QuickDrain Plumbing", location: "Torrance, CA", trade: "Plumbing", pay: "$16-$20/hr", urgent: true },
-    { title: "Concrete Laborer - Start This Week", company: "Foundation First Inc", location: "Corona, CA", trade: "Concrete", pay: "$18-$26/hr", urgent: true },
-    { title: "Commercial Painter Needed ASAP", company: "ColorPro Painting", location: "Garden Grove, CA", trade: "Painting", pay: "$20-$30/hr", urgent: true },
-    { title: "Landscape Maintenance Crew", company: "Pacific Landscapes", location: "Laguna Beach, CA", trade: "Landscaping", pay: "$17-$23/hr", urgent: false },
-    { title: "Forklift Driver - Day Shift", company: "Home Depot Distribution", location: "Chula Vista, CA", trade: "Forklift", pay: "$20-$26/hr", urgent: false },
-    { title: "Rough Carpenter - Housing Development", company: "KB Home", location: "Temecula, CA", trade: "Carpentry", pay: "$28-$40/hr", urgent: false },
-    { title: "Structural Welder", company: "Iron Workers Local 433", location: "Long Beach, CA", trade: "Welding", pay: "$35-$55/hr", urgent: false },
-    { title: "Roofing Laborer - Training Provided", company: "SunCoast Roofing", location: "San Clemente, CA", trade: "Roofing", pay: "$18-$24/hr", urgent: true },
-    { title: "Delivery Driver - Box Truck", company: "XPO Logistics", location: "Anaheim, CA", trade: "Trucking/CDL", pay: "$22-$28/hr", urgent: false },
-    { title: "Night Custodian - School District", company: "SDUSD", location: "San Diego, CA", trade: "Cleaning/Janitorial", pay: "$19-$24/hr", urgent: false },
-    { title: "General Labor - Temp to Hire", company: "PeopleReady", location: "Los Angeles, CA", trade: "General Labor", pay: "$17-$22/hr", urgent: true },
-  ];
-
-  const descriptions = [
-    "Join our growing team! We offer competitive pay, benefits after 90 days, and opportunities for advancement. Must have reliable transportation. Drug test required. Apply online or call us directly to schedule an interview. We provide all necessary PPE and safety training.",
-    "Hiring immediately! No experience necessary - we will train the right candidate. Must be able to lift 50+ lbs. Steel-toed boots required. Weekly pay available. Overtime opportunities. Health insurance after 60 days.",
-    "Experienced professionals wanted. Must have own tools. References required. Competitive pay based on experience. Start ASAP. 401k matching after 1 year. Paid holidays and vacation time.",
-    "Looking for reliable, hardworking individuals to join our crew. Spanish bilingual preferred. Must pass background check. Benefits included. Monday-Friday schedule with occasional weekends. Direct deposit available.",
-    "Urgent need for skilled tradespeople. Union rates and benefits. Must have valid driver's license. OSHA 10 certification preferred. Pension plan and health coverage. Steady year-round work.",
-  ];
-
-  // No fake phone numbers — only user-posted jobs should have contact info
-
-  const sourceTags = ["Craigslist", "Indeed", "ZipRecruiter", "Facebook Jobs", "Local Board", "Union Hall", "Staffing Agency"];
-  const workTypes = ["full-time", "part-time", "temp", "contract", "day-labor"] as const;
-
-  const results: InsertJob[] = templates.map((t, i) => {
-    const coords = getCoords(t.location);
-    const desc = descriptions[i % descriptions.length];
-    const src = sourceTags[i % sourceTags.length];
-    const wType = t.urgent && Math.random() > 0.5 ? "day-labor" : workTypes[Math.floor(Math.random() * 3)];
-    const payType = t.pay.includes("/day") ? "daily" : t.pay.includes("/wk") ? "weekly" : "hourly";
-    const jobUrl = generateJobUrl(src, t.title, t.company, t.location);
-
-    return {
-      title: t.title, company: t.company, location: t.location,
-      city: t.location.split(",")[0].trim(),
-      county: detectCounty(t.location), zip: null,
-      lat: coords?.lat ?? null, lng: coords?.lng ?? null,
-      trade: t.trade, payRange: t.pay, payType,
-      workType: wType,
-      description: `${t.title} at ${t.company}\n\n${desc}\n\nLocation: ${t.location}\nPay: ${t.pay}\n\nView the original posting: ${jobUrl}`,
-      snippet: desc.substring(0, 120),
-      url: jobUrl,
-      source: src,
-      sourceId: `local-${Date.now()}-${i}`,
-      isUrgent: t.urgent, isSaved: false,
-      tags: JSON.stringify(t.urgent ? ["urgent", "hiring-now"] : ["active"]),
-      postedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      fetchedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "active",
-    };
-  });
-
-  return { source: "Local Sources", jobs: results };
-}
-
-// Live new jobs drip (fallback when no APIs configured)
-function generateNewJob(): InsertJob | null {
-  if (Math.random() > 0.4) return null;
-
-  const titles = [
-    "Warehouse Picker - Start Today", "General Laborer Needed", "Electrician Helper",
-    "HVAC Tech - Emergency Call", "Plumber - Service Calls", "Forklift Operator Needed",
-    "Construction Clean-up Crew", "Painter - Residential", "CDL Driver - Local Routes",
-    "Landscaper - Full Time", "Welder - Shop Work", "Carpenter - Finish Work",
-    "Roofer Needed - Cash Daily", "Moving Help Wanted", "Tile Setter Assistant",
-    "Concrete Pour Crew", "Mechanic - Oil Change Tech", "Janitor - Night Shift",
-  ];
-  const companies = [
-    "Quick Staff Solutions", "Day Labor Plus", "SoCal Trades", "Pacific Workforce",
-    "Harbor Staffing", "Golden State Labor", "Coastline Services", "Summit Temp Agency",
-  ];
-  const locations = [
-    "Los Angeles, CA", "Anaheim, CA", "San Diego, CA", "Irvine, CA", "Long Beach, CA",
-    "Costa Mesa, CA", "Oceanside, CA", "Pasadena, CA", "Fullerton, CA", "Chula Vista, CA",
-    "Dana Point, CA", "Huntington Beach, CA", "Garden Grove, CA", "Carlsbad, CA",
-  ];
-  const sourceTags = ["Craigslist", "Indeed", "ZipRecruiter", "Facebook Jobs"];
-
-  const title = titles[Math.floor(Math.random() * titles.length)];
-  const company = companies[Math.floor(Math.random() * companies.length)];
-  const location = locations[Math.floor(Math.random() * locations.length)];
-  const source = sourceTags[Math.floor(Math.random() * sourceTags.length)];
-  const coords = getCoords(location);
-  const payBase = 16 + Math.floor(Math.random() * 20);
-  const payHigh = payBase + 5 + Math.floor(Math.random() * 15);
-  const isUrgent = detectUrgent(title) || Math.random() > 0.7;
-  const jobUrl = generateJobUrl(source, title, company, location);
-
-  return {
-    title, company, location,
-    city: location.split(",")[0].trim(),
-    county: detectCounty(location), zip: null,
-    lat: coords?.lat ?? null, lng: coords?.lng ?? null,
-    trade: detectTrade(title, ""),
-    payRange: `$${payBase}-$${payHigh}/hr`,
-    payType: "hourly",
-    workType: isUrgent ? "day-labor" : "full-time",
-    description: `${title} at ${company}\n\nHiring now in ${location}. Competitive pay $${payBase}-$${payHigh}/hr. Reliable work with growth potential.\n\nRequirements:\n- Must be 18+\n- Reliable transportation\n- Able to pass background check\n- Steel-toed boots (provided if needed)\n\nView the original posting: ${jobUrl}`,
-    snippet: `Hiring now in ${location}. $${payBase}-$${payHigh}/hr.`,
-    url: jobUrl,
-    source, sourceId: `live-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    isUrgent, isSaved: false,
-    tags: isUrgent ? JSON.stringify(["urgent", "new"]) : JSON.stringify(["new"]),
-    postedAt: new Date().toISOString(),
-    fetchedAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    status: "active",
-  };
-}
-
 // ---- Helper: upsert jobs from a fetch result ----
 async function upsertFetchResult(result: FetchResult): Promise<number> {
   let added = 0;
@@ -685,44 +511,35 @@ let lastApiFetch = 0;
 const API_POLL_INTERVAL = 5 * 60 * 1000; // Poll APIs every 5 min (saves rate limits)
 
 export async function seedInitialJobs() {
-  const existingCount = storage.getJobCount();
-  if (existingCount > 0) return;
-
-  // Register all default sources
-  const defaultSources = [
-    { name: "Craigslist LA/OC/SD", type: "scraper", url: "https://losangeles.craigslist.org/search/jjj", isActive: true, config: '{"regions":["la","oc","sd"]}' },
-    { name: "Indeed API", type: "api", url: "https://www.indeed.com", isActive: true, config: '{"partner": false}' },
-    { name: "ZipRecruiter", type: "api", url: "https://www.ziprecruiter.com", isActive: true, config: null },
-    { name: "JSearch API", type: "api", url: "https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch", isActive: true, config: '{"tier":"free","callsPerMonth":200}' },
-    { name: "Jooble API", type: "api", url: "https://jooble.org/api/about", isActive: true, config: '{"location":"Southern California","radius":50}' },
-    { name: "Techmap RSS", type: "api", url: "https://api.techmap.io", isActive: true, config: '{"feeds":["construction","warehouse","trades"]}' },
-    { name: "Adzuna", type: "api", url: "https://api.adzuna.com", isActive: false, config: null },
-    { name: "Facebook Jobs", type: "scraper", url: "https://facebook.com/jobs", isActive: true, config: null },
-    { name: "Union Hiring Hall", type: "scraper", url: "https://unionhiringhall.com", isActive: true, config: null },
-    { name: "PeopleReady", type: "scraper", url: "https://jobs.peopleready.com", isActive: true, config: null },
-    { name: "CA EDD", type: "api", url: "https://edd.ca.gov", isActive: true, config: null },
-    { name: "PlanHub Bids", type: "scraper", url: "https://planhub.com", isActive: true, config: '{"type":"construction_bids"}' },
-  ];
-  for (const src of defaultSources) storage.createSource(src);
-
-  const localJobs = generateLocalJobs();
-  let added = 0;
-  for (const job of localJobs.jobs) {
-    const existing = storage.deduplicateJob(job.title, job.company, job.location);
-    if (!existing) { storage.createJob(job); added++; }
+  // Register default sources if none exist
+  const existingSources = storage.getSources();
+  if (existingSources.length === 0) {
+    const defaultSources = [
+      { name: "Craigslist LA/OC/SD", type: "scraper", url: "https://losangeles.craigslist.org/search/jjj", isActive: true, config: '{"regions":["la","oc","sd"]}' },
+      { name: "Indeed API", type: "api", url: "https://www.indeed.com", isActive: true, config: '{"partner": false}' },
+      { name: "ZipRecruiter", type: "api", url: "https://www.ziprecruiter.com", isActive: true, config: null },
+      { name: "JSearch API", type: "api", url: "https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch", isActive: true, config: '{"tier":"free","callsPerMonth":200}' },
+      { name: "Jooble API", type: "api", url: "https://jooble.org/api/about", isActive: true, config: '{"location":"Southern California","radius":50}' },
+      { name: "Techmap RSS", type: "api", url: "https://api.techmap.io", isActive: true, config: '{"feeds":["construction","warehouse","trades"]}' },
+      { name: "Adzuna", type: "api", url: "https://api.adzuna.com", isActive: false, config: null },
+      { name: "Facebook Jobs", type: "scraper", url: "https://facebook.com/jobs", isActive: true, config: null },
+      { name: "Union Hiring Hall", type: "scraper", url: "https://unionhiringhall.com", isActive: true, config: null },
+      { name: "PeopleReady", type: "scraper", url: "https://jobs.peopleready.com", isActive: true, config: null },
+      { name: "CA EDD", type: "api", url: "https://edd.ca.gov", isActive: true, config: null },
+      { name: "PlanHub Bids", type: "scraper", url: "https://planhub.com", isActive: true, config: '{"type":"construction_bids"}' },
+    ];
+    for (const src of defaultSources) storage.createSource(src);
   }
 
-  storage.createActivityLog({
-    source: "System", action: "seed",
-    details: `Seeded ${added} initial job listings from local sources`,
-    jobsAdded: added, timestamp: new Date().toISOString(),
-  });
-
-  const allSources = storage.getSources();
-  for (const src of allSources) {
-    storage.updateSource(src.id, {
-      lastPolled: new Date().toISOString(), lastStatus: "success",
-      jobsFound: Math.floor(added / allSources.length),
+  // Fetch real jobs from APIs on first run
+  const existingCount = storage.getJobCount();
+  if (existingCount === 0) {
+    console.log("[Ingestion] No jobs in DB — fetching from APIs...");
+    const added = await fetchFromAPIs();
+    storage.createActivityLog({
+      source: "System", action: "seed",
+      details: `Initial API fetch: ${added} real job listings added`,
+      jobsAdded: added, timestamp: new Date().toISOString(),
     });
   }
 }
@@ -759,7 +576,7 @@ export async function fetchFromAPIs(): Promise<number> {
 }
 
 export async function pollForNewJobs() {
-  // Check if it's time to poll real APIs
+  // Only poll real APIs — no fake/simulated jobs
   const now = Date.now();
   if (now - lastApiFetch >= API_POLL_INTERVAL) {
     lastApiFetch = now;
@@ -769,38 +586,6 @@ export async function pollForNewJobs() {
       console.error("[Ingestion] API fetch error:", e);
     }
   }
-
-  // Also drip simulated jobs as fallback
-  const newJob = generateNewJob();
-  if (!newJob) return;
-  const existing = storage.deduplicateJob(newJob.title, newJob.company, newJob.location);
-  if (existing) return;
-  const created = storage.createJob(newJob);
-
-  const matchingAlerts = storage.getMatchingAlerts(created);
-  for (const alert of matchingAlerts) {
-    storage.updateAlert(alert.id, {
-      lastTriggered: new Date().toISOString(),
-      matchCount: (alert.matchCount ?? 0) + 1,
-    } as any);
-  }
-
-  const allSources = storage.getSources();
-  const matchingSource = allSources.find((s) => s.name.toLowerCase().includes(newJob.source.toLowerCase().split(" ")[0]));
-  if (matchingSource) {
-    storage.updateSource(matchingSource.id, {
-      lastPolled: new Date().toISOString(), lastStatus: "success",
-      jobsFound: (matchingSource.jobsFound ?? 0) + 1,
-    });
-  }
-
-  storage.createActivityLog({
-    source: newJob.source, action: "new_job",
-    details: `New: ${newJob.title} at ${newJob.company} (${newJob.location})`,
-    jobsAdded: 1, timestamp: new Date().toISOString(),
-  });
-
-  return created; // Return for real-time notification
 }
 
 export function startPolling(intervalMs: number = 30000) {

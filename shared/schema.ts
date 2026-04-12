@@ -85,6 +85,20 @@ export const siteSettings = sqliteTable("site_settings", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const applications = sqliteTable("applications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull(),
+  jobId: integer("job_id"),
+  jobTitle: text("job_title").notNull(),
+  company: text("company").notNull(),
+  location: text("location"),
+  status: text("status").notNull().default("applied"),
+  appliedAt: text("applied_at").notNull(),
+  notes: text("notes"),
+  followUpDate: text("follow_up_date"),
+  url: text("url"),
+});
+
 export const activityLog = sqliteTable("activity_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   source: text("source").notNull(),
@@ -100,6 +114,7 @@ export const insertJobSchema = createInsertSchema(jobs).omit({ id: true });
 export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true, createdAt: true, lastTriggered: true, matchCount: true });
 export const insertSourceSchema = createInsertSchema(sources).omit({ id: true, lastPolled: true, lastStatus: true, jobsFound: true, errorMessage: true });
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({ id: true });
+export const insertApplicationSchema = createInsertSchema(applications).omit({ id: true });
 
 // Auth schemas
 export const loginSchema = z.object({
@@ -145,6 +160,8 @@ export type Source = typeof sources.$inferSelect;
 export type InsertSource = z.infer<typeof insertSourceSchema>;
 export type ActivityLog = typeof activityLog.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type Application = typeof applications.$inferSelect;
+export type InsertApplication = z.infer<typeof insertApplicationSchema>;
 
 // Trade categories
 export const TRADES = [

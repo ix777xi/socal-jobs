@@ -199,6 +199,33 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
   const [copied, setCopied] = useState(false);
   const [, setLocation] = useLocation();
 
+  const trackApplicationMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/applications", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/applications/stats"] });
+      toast({ title: "Added to your Application Tracker" });
+    },
+  });
+
+  function handleViewOriginal() {
+    if (!job?.url) return;
+    window.open(job.url, "_blank", "noopener,noreferrer");
+    if (isPro) {
+      trackApplicationMutation.mutate({
+        jobId: job.id,
+        jobTitle: job.title,
+        company: job.company,
+        location: job.location || null,
+        status: "applied",
+        appliedAt: new Date().toISOString(),
+        url: job.url,
+        notes: null,
+        followUpDate: null,
+      });
+    }
+  }
+
   if (!job) return null;
 
   // Use contactPhone for user-posted jobs, or extract real phone numbers from description
@@ -288,10 +315,12 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
           {isPro ? (
             <div className="flex gap-2">
               {job.url && (
-                <Button asChild className="flex-1 h-10 text-sm font-semibold" data-testid="button-apply">
-                  <a href={job.url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-4 h-4 mr-1.5" />View Original Posting
-                  </a>
+                <Button
+                  className="flex-1 h-10 text-sm font-semibold"
+                  onClick={handleViewOriginal}
+                  data-testid="button-apply"
+                >
+                  <ExternalLink className="w-4 h-4 mr-1.5" />View Original Posting
                 </Button>
               )}
               {phone && (

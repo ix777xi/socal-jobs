@@ -2,7 +2,7 @@ import type { Express } from "express";
 import type { Server } from "http";
 import session from "express-session";
 import { storage } from "./storage";
-import { insertAlertSchema, postJobSchema } from "@shared/schema";
+import { insertAlertSchema, postJobSchema, insertApplicationSchema } from "@shared/schema";
 import { seedInitialJobs, startPolling, stopPolling, isPolling, pollForNewJobs, triggerManualFetch } from "./ingestion";
 import { registerAuthRoutes, requireAuth, requireSubscription, requireAdmin, getSessionUser } from "./auth";
 import { registerStripeRoutes } from "./stripe";
@@ -202,6 +202,122 @@ export async function registerRoutes(server: Server, app: Express) {
     if (job.postedByUserId !== user.id) return res.status(403).json({ error: "You can only delete your own postings" });
     storage.deleteJob(job.id);
     res.json({ success: true });
+  });
+
+  // ---- Applications (Pro only) ----
+  app.get("/api/applications/stats", requireAuth, requireSubscription, (req, res) => {
+    const user = (req as any).user;
+    const stats = storage.getApplicationStats(user.id);
+    res.json(stats);
+  });
+
+  app.get("/api/applications", requireAuth, requireSubscription, (req, res) => {
+    const user = (req as any).user;
+    const apps = storage.getApplicationsByUser(user.id);
+    res.json(apps);
+  });
+
+  app.post("/api/applications", requireAuth, requireSubscription, (req, res) => {
+    const user = (req as any).user;
+    const parsed = insertApplicationSchema.safeParse({ ...req.body, userId: user.id });
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+    const app_ = storage.createApplication({
+      ...parsed.data,
+      appliedAt: parsed.data.appliedAt || new Date().toISOString(),
+    });
+    res.json(app_);
+  });
+
+  app.patch("/api/applications/:id", requireAuth, requireSubscription, (req, res) => {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    const existing = storage.getApplicationsByUser(user.id).find(a => a.id === id);
+    if (!existing) return res.status(404).json({ error: "Application not found" });
+    const updated = storage.updateApplication(id, req.body);
+    res.json(updated);
+  });
+
+  app.delete("/api/applications/:id", requireAuth, requireSubscription, (req, res) => {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    const existing = storage.getApplicationsByUser(user.id).find(a => a.id === id);
+    if (!existing) return res.status(404).json({ error: "Application not found" });
+    storage.deleteApplication(id);
+    res.json({ success: true });
+  });
+
+  // ---- Salary Insights (Pro only) ----
+  app.get("/api/insights/salary", requireAuth, requireSubscription, (_req, res) => {
+    // Get all active jobs with pay data
+    const allJobs = storage.getJobs({ limit: 1000 });
+
+    function parsePay(payRange: string | null | undefined): { min: number; max: number } | null {
+      if (!payRange) return null;
+      // Match patterns like $18/hr, $18-$25/hr, 18-25, $18.50, 18.50/hour, etc.
+      const nums = payRange.match(/(\d+(?:\.\d+)?)/g);
+      if (!nums || nums.length === 0) return null;
+      const values = nums.map(Number).filter(n => n >= 8 && n <= 300); // sanity range
+      if (values.length === 0) return null;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      // Normalize: if pay looks like annual salary (>100), convert to hourly
+      if (min > 100 && max > 100) {
+        return { min: Math.round(min / 2080 * 100) / 100, max: Math.round(max / 2080 * 100) / 100 };
+      }
+      return { min, max };
+    }
+
+    const jobsWithPay = allJobs.filter(j => j.payRange);
+
+    // By trade
+    const tradeMap: Record<string, { mins: number[]; maxes: number[]; count: number }> = {};
+    const countyMap: Record<string, { mins: number[]; maxes: number[]; count: number }> = {};
+    const allMins: number[] = [];
+    const allMaxes: number[] = [];
+
+    for (const job of jobsWithPay) {
+      const pay = parsePay(job.payRange);
+      if (!pay) continue;
+
+      // Trade
+      if (!tradeMap[job.trade]) tradeMap[job.trade] = { mins: [], maxes: [], count: 0 };
+      tradeMap[job.trade].mins.push(pay.min);
+      tradeMap[job.trade].maxes.push(pay.max);
+      tradeMap[job.trade].count++;
+
+      // County
+      const county = job.county || "Unknown";
+      if (!countyMap[county]) countyMap[county] = { mins: [], maxes: [], count: 0 };
+      countyMap[county].mins.push(pay.min);
+      countyMap[county].maxes.push(pay.max);
+      countyMap[county].count++;
+
+      allMins.push(pay.min);
+      allMaxes.push(pay.max);
+    }
+
+    function avg(arr: number[]): number {
+      if (!arr.length) return 0;
+      return Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100;
+    }
+
+    const byTrade = Object.entries(tradeMap)
+      .map(([trade, d]) => ({ trade, avgMin: avg(d.mins), avgMax: avg(d.maxes), count: d.count }))
+      .filter(t => t.count >= 1)
+      .sort((a, b) => b.avgMax - a.avgMax);
+
+    const byCounty = Object.entries(countyMap)
+      .map(([county, d]) => ({ county, avgMin: avg(d.mins), avgMax: avg(d.maxes), count: d.count }))
+      .filter(c => c.count >= 1)
+      .sort((a, b) => b.avgMax - a.avgMax);
+
+    const overall = {
+      avgMin: avg(allMins),
+      avgMax: avg(allMaxes),
+      total: jobsWithPay.length,
+    };
+
+    res.json({ byTrade, byCounty, overall });
   });
 
   // ---- Sources (admin only) ----
