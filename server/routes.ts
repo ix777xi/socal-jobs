@@ -204,19 +204,19 @@ export async function registerRoutes(server: Server, app: Express) {
     res.json({ success: true });
   });
 
-  // ---- Sources (public, read-only) ----
-  app.get("/api/sources", (_req, res) => {
+  // ---- Sources (admin only) ----
+  app.get("/api/sources", requireAdmin, (_req, res) => {
     res.json(storage.getSources());
   });
 
-  app.patch("/api/sources/:id", (req, res) => {
+  app.patch("/api/sources/:id", requireAdmin, (req, res) => {
     const source = storage.updateSource(parseInt(req.params.id), req.body);
     if (!source) return res.status(404).json({ error: "Source not found" });
     res.json(source);
   });
 
-  // ---- Activity Log (public) ----
-  app.get("/api/activity", (req, res) => {
+  // ---- Activity Log (admin only) ----
+  app.get("/api/activity", requireAdmin, (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     res.json(storage.getActivityLog(limit));
   });
@@ -317,23 +317,23 @@ export async function registerRoutes(server: Server, app: Express) {
     res.json(source);
   });
 
-  // ---- Ingestion Controls ----
-  app.post("/api/ingestion/start", (_req, res) => {
+  // ---- Ingestion Controls (admin only) ----
+  app.post("/api/ingestion/start", requireAdmin, (_req, res) => {
     startPolling(30000);
     res.json({ status: "started" });
   });
 
-  app.post("/api/ingestion/stop", (_req, res) => {
+  app.post("/api/ingestion/stop", requireAdmin, (_req, res) => {
     stopPolling();
     res.json({ status: "stopped" });
   });
 
-  app.post("/api/ingestion/poll", async (_req, res) => {
+  app.post("/api/ingestion/poll", requireAdmin, async (_req, res) => {
     await pollForNewJobs();
     res.json({ status: "polled" });
   });
 
-  app.get("/api/ingestion/status", (_req, res) => {
+  app.get("/api/ingestion/status", requireAdmin, (_req, res) => {
     res.json({ isPolling: isPolling() });
   });
 }

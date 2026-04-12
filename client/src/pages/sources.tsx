@@ -14,10 +14,12 @@ import {
   RefreshCw, Play, Pause, CheckCircle2, XCircle,
   Clock, Database, Wifi, WifiOff, Activity, ArrowUpRight,
   Globe, Server, Users, ExternalLink, ChevronRight,
-  AlertTriangle, Zap, BarChart3, Copy, Eye,
+  AlertTriangle, Zap, BarChart3, Copy, Eye, Shield,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import type { Source, ActivityLog } from "@shared/schema";
+import { useAuth } from "@/lib/auth";
+import { useLocation } from "wouter";
 
 const CHART_COLORS = ["hsl(24,95%,50%)", "hsl(210,70%,45%)", "hsl(142,60%,40%)", "hsl(45,90%,50%)", "hsl(340,65%,50%)", "hsl(270,50%,55%)", "hsl(180,60%,40%)", "hsl(30,80%,55%)", "hsl(0,60%,50%)"];
 
@@ -204,6 +206,8 @@ function SourceDetailSheet({ source, activity, open, onClose, onToggle }: {
 }
 
 export default function SourcesPage() {
+  const { user, isAdmin } = useAuth();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -213,16 +217,19 @@ export default function SourcesPage() {
   const { data: sources = [] } = useQuery<Source[]>({
     queryKey: ["/api/sources"],
     refetchInterval: 30000,
+    enabled: !!isAdmin,
   });
 
   const { data: activity = [] } = useQuery<ActivityLog[]>({
     queryKey: ["/api/activity"],
     refetchInterval: 30000,
+    enabled: !!isAdmin,
   });
 
   const { data: ingestionStatus } = useQuery<{ isPolling: boolean }>({
     queryKey: ["/api/ingestion/status"],
     refetchInterval: 10000,
+    enabled: !!isAdmin,
   });
 
   const toggleSourceMutation = useMutation({
@@ -269,6 +276,25 @@ export default function SourcesPage() {
       toast({ title: "Manual poll complete" });
     },
   });
+
+  if (!user || !isAdmin) {
+    return (
+      <div className="p-4 md:p-6">
+        <Card className="max-w-lg mx-auto">
+          <CardContent className="p-8 text-center space-y-3">
+            <Shield className="w-10 h-10 mx-auto text-destructive" />
+            <h2 className="text-lg font-bold">Admin Access Required</h2>
+            <p className="text-sm text-muted-foreground">
+              This page is restricted to site administrators.
+            </p>
+            <Button variant="outline" onClick={() => setLocation("/")} className="h-9 text-sm">
+              Back to Jobs Feed
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const isPolling = ingestionStatus?.isPolling ?? false;
   const activeSources = sources.filter((s) => s.isActive).length;

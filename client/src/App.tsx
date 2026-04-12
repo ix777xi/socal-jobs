@@ -51,8 +51,10 @@ function AppLayout() {
     { href: "/post-job", label: "Post a Job", icon: PlusCircle, pro: true },
     { href: "/saved", label: "Saved", icon: Bookmark, pro: true },
     { href: "/alerts", label: "Alerts", icon: Bell, pro: true },
-    { href: "/sources", label: "Sources", icon: Settings },
-    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
+    ...(isAdmin ? [
+      { href: "/sources", label: "Sources", icon: Settings },
+      { href: "/admin", label: "Admin", icon: Shield },
+    ] : []),
   ];
 
   return (
