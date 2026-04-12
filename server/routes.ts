@@ -15,7 +15,7 @@ export async function registerRoutes(server: Server, app: Express) {
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: false, // Set to true if behind HTTPS proxy
+        secure: process.env.NODE_ENV === "production",
         httpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         sameSite: "lax",

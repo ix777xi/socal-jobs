@@ -145,8 +145,16 @@ export function registerAuthRoutes(app: Express) {
         const user = req.user as User;
         if (user) {
           req.session.userId = user.id;
+          // Explicitly save session before redirecting to avoid race condition
+          req.session.save((err) => {
+            if (err) {
+              console.error("[Auth] Session save error:", err);
+            }
+            res.redirect("/#/?google=success");
+          });
+        } else {
+          res.redirect("/#/auth?error=google_failed");
         }
-        res.redirect("/#/?google=success");
       }
     );
 

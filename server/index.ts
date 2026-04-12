@@ -4,6 +4,10 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
+
+// Trust Railway's reverse proxy so secure cookies and req.protocol work
+app.set("trust proxy", 1);
+
 const httpServer = createServer(app);
 
 declare module "http" {
