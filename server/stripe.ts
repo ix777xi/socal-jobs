@@ -25,10 +25,47 @@ async function getOrCreatePortalConfig(): Promise<string> {
   if (!stripe) throw new Error("Stripe not configured");
   if (cachedPortalConfigId) return cachedPortalConfigId;
 
-  // Check if a portal config already exists
+  // Check if a portal config already exists — update it with latest features
   const configs = await stripe.billingPortal.configurations.list({ limit: 1 });
   if (configs.data.length > 0 && configs.data[0].active) {
-    cachedPortalConfigId = configs.data[0].id;
+    const existing = configs.data[0];
+    try {
+      await stripe.billingPortal.configurations.update(existing.id, {
+        business_profile: {
+          headline: "Orange Blue Collar Jobs \u2014 Manage your subscription",
+        },
+        features: {
+          customer_update: {
+            enabled: true,
+            allowed_updates: ["email", "name", "address", "phone"],
+          },
+          invoice_history: {
+            enabled: true,
+          },
+          payment_method_update: {
+            enabled: true,
+          },
+          subscription_cancel: {
+            enabled: true,
+            mode: "at_period_end",
+            cancellation_reason: {
+              enabled: true,
+              options: [
+                "too_expensive",
+                "missing_features",
+                "switched_service",
+                "unused",
+                "other",
+              ],
+            },
+          },
+        },
+      });
+      console.log(`[Stripe] Updated billing portal config: ${existing.id}`);
+    } catch (e) {
+      console.warn("[Stripe] Could not update portal config, using existing:", (e as Error).message);
+    }
+    cachedPortalConfigId = existing.id;
     return cachedPortalConfigId;
   }
 
@@ -40,7 +77,7 @@ async function getOrCreatePortalConfig(): Promise<string> {
     features: {
       customer_update: {
         enabled: true,
-        allowed_updates: ["email", "name"],
+        allowed_updates: ["email", "name", "address", "phone"],
       },
       invoice_history: {
         enabled: true,
@@ -51,6 +88,19 @@ async function getOrCreatePortalConfig(): Promise<string> {
       subscription_cancel: {
         enabled: true,
         mode: "at_period_end",
+        cancellation_reason: {
+          enabled: true,
+          options: [
+            "too_expensive",
+            "missing_features",
+            "switched_service",
+            "unused",
+            "other",
+          ],
+        },
+      },
+      subscription_pause: {
+        enabled: false,
       },
     },
   });

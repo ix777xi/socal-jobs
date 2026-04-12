@@ -11,6 +11,7 @@ import {
   User, Crown, CreditCard, LogOut, ExternalLink,
   CheckCircle2, AlertTriangle, Loader2, Mail, Calendar,
   Shield, Briefcase, Bell, Bookmark, FileText, Zap,
+  BarChart3, ClipboardList, ArrowRight, Receipt,
 } from "lucide-react";
 
 export default function AccountPage() {
@@ -54,10 +55,9 @@ export default function AccountPage() {
     try {
       const res = await apiRequest("POST", "/api/stripe/portal");
       const { url } = await res.json();
-      if (url) window.open(url, "_blank");
+      if (url) window.location.href = url;
     } catch {
       toast({ title: "Could not open billing portal", variant: "destructive" });
-    } finally {
       setPortalLoading(false);
     }
   }
@@ -251,24 +251,36 @@ export default function AccountPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-primary" />
-              Manage Billing
+              Billing & Subscription
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              View invoices, update your payment method, or cancel your subscription through the Stripe billing portal.
-            </p>
+            {/* Main CTA */}
+            <Button
+              className="w-full h-10 text-sm font-semibold"
+              onClick={handleManageBilling}
+              disabled={portalLoading}
+              data-testid="button-manage-billing-main"
+            >
+              {portalLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <ExternalLink className="w-4 h-4 mr-2" />
+              )}
+              {portalLoading ? "Opening billing portal..." : "Manage Billing"}
+            </Button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {/* Quick action grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 onClick={handleManageBilling}
                 disabled={portalLoading}
                 className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-center cursor-pointer disabled:opacity-50"
                 data-testid="button-billing-invoices"
               >
-                <FileText className="w-4 h-4 text-muted-foreground" />
+                <Receipt className="w-4 h-4 text-muted-foreground" />
                 <span className="text-xs font-medium">Invoices</span>
-                <span className="text-[10px] text-muted-foreground">View history</span>
+                <span className="text-[10px] text-muted-foreground">View &amp; download</span>
               </button>
               <button
                 onClick={handleManageBilling}
@@ -284,20 +296,23 @@ export default function AccountPage() {
                 onClick={handleManageBilling}
                 disabled={portalLoading}
                 className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-center cursor-pointer disabled:opacity-50"
+                data-testid="button-billing-info"
+              >
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-medium">Billing Info</span>
+                <span className="text-[10px] text-muted-foreground">Name &amp; email</span>
+              </button>
+              <button
+                onClick={handleManageBilling}
+                disabled={portalLoading}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-center cursor-pointer disabled:opacity-50"
                 data-testid="button-billing-cancel"
               >
                 <AlertTriangle className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs font-medium">Cancel Plan</span>
+                <span className="text-xs font-medium">Cancel</span>
                 <span className="text-[10px] text-muted-foreground">End subscription</span>
               </button>
             </div>
-
-            {portalLoading && (
-              <div className="flex items-center justify-center gap-2 py-1">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                <span className="text-xs text-muted-foreground">Opening billing portal...</span>
-              </div>
-            )}
 
             <Separator />
 
@@ -307,6 +322,8 @@ export default function AccountPage() {
                 {[
                   { icon: Briefcase, label: "Unlimited job listings" },
                   { icon: ExternalLink, label: "Apply links & full details" },
+                  { icon: ClipboardList, label: "Application tracker" },
+                  { icon: BarChart3, label: "Salary insights" },
                   { icon: Bookmark, label: "Save jobs" },
                   { icon: Bell, label: "Job alerts" },
                   { icon: Zap, label: "Post your own jobs" },
