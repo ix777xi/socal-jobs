@@ -18,8 +18,11 @@ sqlite.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT,
     name TEXT,
+    avatar_url TEXT,
+    google_id TEXT UNIQUE,
+    auth_provider TEXT DEFAULT 'local',
     stripe_customer_id TEXT,
     subscription_id TEXT,
     subscription_status TEXT DEFAULT 'none',
@@ -90,12 +93,24 @@ sqlite.exec(`
   );
 `);
 
+// Migrate: add new columns if they don't exist
+try {
+  sqlite.exec(`ALTER TABLE users ADD COLUMN avatar_url TEXT`);
+} catch {}
+try {
+  sqlite.exec(`ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE`);
+} catch {}
+try {
+  sqlite.exec(`ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'`);
+} catch {}
+
 export const db = drizzle(sqlite);
 
 export interface IStorage {
   // Users
   getUserByEmail(email: string): User | undefined;
   getUserById(id: number): User | undefined;
+  getUserByGoogleId(googleId: string): User | undefined;
   createUser(user: InsertUser & { createdAt: string }): User;
   updateUser(id: number, data: Partial<User>): User | undefined;
 
@@ -157,6 +172,10 @@ export class SqliteStorage implements IStorage {
 
   getUserById(id: number): User | undefined {
     return db.select().from(users).where(eq(users.id, id)).get();
+  }
+
+  getUserByGoogleId(googleId: string): User | undefined {
+    return db.select().from(users).where(eq(users.googleId, googleId)).get();
   }
 
   createUser(user: InsertUser & { createdAt: string }): User {

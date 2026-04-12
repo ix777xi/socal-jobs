@@ -1,5 +1,7 @@
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import type { Express, Request, Response, NextFunction } from "express";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { storage } from "./storage";
 import { loginSchema, registerSchema } from "@shared/schema";
 import type { User } from "@shared/schema";
@@ -54,6 +56,105 @@ export function requireSubscription(req: Request, res: Response, next: NextFunct
 }
 
 export function registerAuthRoutes(app: Express) {
+  // --- Google OAuth Setup ---
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (googleClientId && googleClientSecret) {
+    passport.serializeUser((user: any, done) => {
+      done(null, user.id);
+    });
+
+    passport.deserializeUser((id: number, done) => {
+      const user = storage.getUserById(id);
+      done(null, user || null);
+    });
+
+    // Determine callback URL dynamically
+    const callbackURL = process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback";
+
+    passport.use(
+      new GoogleStrategy(
+        {
+          clientID: googleClientId,
+          clientSecret: googleClientSecret,
+          callbackURL,
+          scope: ["profile", "email"],
+        },
+        async (_accessToken, _refreshToken, profile, done) => {
+          try {
+            const email = profile.emails?.[0]?.value?.toLowerCase();
+            if (!email) {
+              return done(new Error("No email found in Google profile"));
+            }
+
+            const googleId = profile.id;
+            const name = profile.displayName || null;
+            const avatarUrl = profile.photos?.[0]?.value || null;
+
+            // Check if user exists by Google ID
+            let user = storage.getUserByGoogleId(googleId);
+            if (user) {
+              // Update avatar/name if changed
+              if (user.avatarUrl !== avatarUrl || user.name !== name) {
+                user = storage.updateUser(user.id, { avatarUrl, name }) || user;
+              }
+              return done(null, user);
+            }
+
+            // Check if user exists by email (local account)
+            user = storage.getUserByEmail(email);
+            if (user) {
+              // Link Google ID to existing account
+              user = storage.updateUser(user.id, {
+                googleId,
+                avatarUrl: avatarUrl || user.avatarUrl,
+                authProvider: user.passwordHash ? "local" : "google",
+              }) || user;
+              return done(null, user);
+            }
+
+            // Create new user via Google
+            user = storage.createUser({
+              email,
+              passwordHash: null,
+              name,
+              avatarUrl,
+              googleId,
+              authProvider: "google",
+              createdAt: new Date().toISOString(),
+            } as any);
+
+            return done(null, user);
+          } catch (err) {
+            return done(err as Error);
+          }
+        }
+      )
+    );
+
+    app.use(passport.initialize());
+
+    // Google OAuth routes
+    app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+    app.get(
+      "/api/auth/google/callback",
+      passport.authenticate("google", { session: false, failureRedirect: "/#/auth?error=google_failed" }),
+      (req: Request, res: Response) => {
+        const user = req.user as User;
+        if (user) {
+          req.session.userId = user.id;
+        }
+        res.redirect("/#/?google=success");
+      }
+    );
+
+    console.log("[Auth] Google OAuth configured");
+  } else {
+    console.warn("[Auth] Google OAuth not configured — missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET");
+  }
+
   // Register
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     const parsed = registerSchema.safeParse(req.body);
@@ -81,6 +182,8 @@ export function registerAuthRoutes(app: Express) {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl,
+      authProvider: user.authProvider,
       subscriptionStatus: user.subscriptionStatus,
     });
   });
@@ -95,7 +198,13 @@ export function registerAuthRoutes(app: Express) {
     const { email, password } = parsed.data;
     const user = storage.getUserByEmail(email);
 
-    if (!user || !verifyPassword(password, user.passwordHash)) {
+    if (!user) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+    if (!user.passwordHash) {
+      return res.status(401).json({ error: "This account uses Google sign-in. Please continue with Google." });
+    }
+    if (!verifyPassword(password, user.passwordHash)) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
@@ -104,6 +213,8 @@ export function registerAuthRoutes(app: Express) {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl,
+      authProvider: user.authProvider,
       subscriptionStatus: user.subscriptionStatus,
     });
   });
@@ -118,8 +229,17 @@ export function registerAuthRoutes(app: Express) {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl,
+      authProvider: user.authProvider,
       subscriptionStatus: user.subscriptionStatus,
       subscriptionEnd: user.subscriptionEnd,
+    });
+  });
+
+  // Check if Google OAuth is available
+  app.get("/api/auth/providers", (_req: Request, res: Response) => {
+    res.json({
+      google: !!(googleClientId && googleClientSecret),
     });
   });
 

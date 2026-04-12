@@ -5,8 +5,11 @@ import { z } from "zod";
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"), // null for OAuth-only users
   name: text("name"),
+  avatarUrl: text("avatar_url"),
+  googleId: text("google_id").unique(),
+  authProvider: text("auth_provider").default("local"), // local, google
   stripeCustomerId: text("stripe_customer_id"),
   subscriptionId: text("subscription_id"),
   subscriptionStatus: text("subscription_status").default("none"), // none, active, canceled, past_due, trialing
