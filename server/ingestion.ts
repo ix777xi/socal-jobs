@@ -559,7 +559,6 @@ function generateLocalJobs(): FetchResult {
     const wType = t.urgent && Math.random() > 0.5 ? "day-labor" : workTypes[Math.floor(Math.random() * 3)];
     const payType = t.pay.includes("/day") ? "daily" : t.pay.includes("/wk") ? "weekly" : "hourly";
     const jobUrl = generateJobUrl(src, t.title, t.company, t.location);
-    const mapUrl = generateMapUrl(t.location, coords?.lat, coords?.lng);
 
     return {
       title: t.title, company: t.company, location: t.location,
@@ -568,7 +567,7 @@ function generateLocalJobs(): FetchResult {
       lat: coords?.lat ?? null, lng: coords?.lng ?? null,
       trade: t.trade, payRange: t.pay, payType,
       workType: wType,
-      description: `${t.title} at ${t.company}\n\n${desc}\n\nLocation: ${t.location}\nPay: ${t.pay}\n\nTo apply, visit the original job posting link.\n\nDirections: ${mapUrl}`,
+      description: `${t.title} at ${t.company}\n\n${desc}\n\nLocation: ${t.location}\nPay: ${t.pay}\n\nView the original posting: ${jobUrl}`,
       snippet: desc.substring(0, 120),
       url: jobUrl,
       source: src,
@@ -617,7 +616,6 @@ function generateNewJob(): InsertJob | null {
   const payHigh = payBase + 5 + Math.floor(Math.random() * 15);
   const isUrgent = detectUrgent(title) || Math.random() > 0.7;
   const jobUrl = generateJobUrl(source, title, company, location);
-  const mapUrl = generateMapUrl(location, coords?.lat, coords?.lng);
 
   return {
     title, company, location,
@@ -628,7 +626,7 @@ function generateNewJob(): InsertJob | null {
     payRange: `$${payBase}-$${payHigh}/hr`,
     payType: "hourly",
     workType: isUrgent ? "day-labor" : "full-time",
-    description: `${title} at ${company}\n\nHiring now in ${location}. Competitive pay $${payBase}-$${payHigh}/hr. Reliable work with growth potential.\n\nRequirements:\n- Must be 18+\n- Reliable transportation\n- Able to pass background check\n- Steel-toed boots (provided if needed)\n\nApply via the original job posting link.\n\nDirections: ${mapUrl}`,
+    description: `${title} at ${company}\n\nHiring now in ${location}. Competitive pay $${payBase}-$${payHigh}/hr. Reliable work with growth potential.\n\nRequirements:\n- Must be 18+\n- Reliable transportation\n- Able to pass background check\n- Steel-toed boots (provided if needed)\n\nView the original posting: ${jobUrl}`,
     snippet: `Hiring now in ${location}. $${payBase}-$${payHigh}/hr.`,
     url: jobUrl,
     source, sourceId: `live-${Date.now()}-${Math.random().toString(36).slice(2)}`,

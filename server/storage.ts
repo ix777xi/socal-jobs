@@ -155,20 +155,22 @@ try {
     WHERE posted_by_user_id IS NULL
     AND description LIKE '%555-%'
   `);
-  // Simpler approach: strip lines containing fake 555 numbers
-  const fakePhoneJobs = sqlite.prepare(`SELECT id, description, snippet FROM jobs WHERE posted_by_user_id IS NULL AND (description LIKE '%555-%' OR snippet LIKE '%555-%')`).all() as any[];
+  // Strip fake 555 phone numbers and directions from API-sourced jobs
+  const dirtyJobs = sqlite.prepare(`SELECT id, description, snippet FROM jobs WHERE posted_by_user_id IS NULL AND (description LIKE '%555-%' OR snippet LIKE '%555-%' OR description LIKE '%Directions:%')`).all() as any[];
   const updateStmt = sqlite.prepare(`UPDATE jobs SET description = ?, snippet = ? WHERE id = ?`);
-  for (const job of fakePhoneJobs) {
+  for (const job of dirtyJobs) {
     let desc = job.description || "";
     let snippet = job.snippet || "";
     // Remove lines with fake 555 phone numbers
     desc = desc.replace(/\n?.*\(\d{3}\)\s*555-\d{4}.*/g, "");
     desc = desc.replace(/Contact:\s*$/gm, "").trim();
+    // Remove Directions: lines with Google Maps URLs
+    desc = desc.replace(/\n?Directions:.*$/gm, "").trim();
     snippet = snippet.replace(/Call\s*\(\d{3}\)\s*555-\d{4}/g, "").trim();
     updateStmt.run(desc, snippet, job.id);
   }
-  if (fakePhoneJobs.length > 0) {
-    console.log(`[Storage] Cleaned fake phone numbers from ${fakePhoneJobs.length} job descriptions`);
+  if (dirtyJobs.length > 0) {
+    console.log(`[Storage] Cleaned ${dirtyJobs.length} job descriptions (fake phones/directions)`);
   }
 } catch (e) {
   // Ignore if already cleaned

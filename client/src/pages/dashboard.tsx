@@ -15,7 +15,7 @@ import {
   Search, MapPin, Briefcase, Clock, DollarSign,
   Bookmark, BookmarkCheck, ExternalLink, Zap, TrendingUp,
   Radio, ChevronRight, Building2, ArrowUpRight,
-  AlertTriangle, BarChart3, Phone, Navigation, Copy,
+  AlertTriangle, BarChart3, Phone, Copy,
   Share2, CheckCircle2, Map as MapIcon, X,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -192,9 +192,6 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
 
   // Only show phone for user-posted jobs (has contactPhone field), not API-sourced
   const phone = (job as any).contactPhone || null;
-  const mapUrl = job.lat && job.lng
-    ? `https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.location)}`;
 
   function handleCopy() {
     const text = `${job!.title} at ${job!.company}\n${job!.location}\nPay: ${job!.payRange || "Not listed"}\n${job!.url || ""}`;
@@ -279,11 +276,6 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
                   </a>
                 </Button>
               )}
-              <Button variant="outline" className="h-10" asChild data-testid="button-directions">
-                <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                  <Navigation className="w-4 h-4" />
-                </a>
-              </Button>
               {phone && (
                 <Button variant="outline" className="h-10" asChild data-testid="button-call">
                   <a href={`tel:${phone}`}>
