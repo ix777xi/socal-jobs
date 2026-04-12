@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { PaywallBanner } from "@/components/paywall-banner";
 import {
   Bookmark, BookmarkCheck, MapPin, Building2, DollarSign,
   Clock, ExternalLink, Zap, Trash2, Phone, Navigation,
@@ -26,6 +28,7 @@ function getTimeAgo(dateStr: string): string {
 
 export default function SavedPage() {
   const { toast } = useToast();
+  const { isPro } = useAuth();
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -37,6 +40,7 @@ export default function SavedPage() {
       return resp.json();
     },
     refetchInterval: 30000,
+    enabled: isPro,
   });
 
   const unsaveMutation = useMutation({
@@ -50,6 +54,16 @@ export default function SavedPage() {
       toast({ title: "Job removed from saved" });
     },
   });
+
+  if (!isPro) {
+    return (
+      <div className="p-4 md:p-6">
+        <h2 className="text-lg font-bold mb-1">Saved Jobs</h2>
+        <p className="text-xs text-muted-foreground mb-4">Bookmark jobs you want to come back to</p>
+        <PaywallBanner feature="Saved Jobs" />
+      </div>
+    );
+  }
 
   function handleCopy(job: Job) {
     const text = `${job.title} at ${job.company}\n${job.location}\nPay: ${job.payRange || "Not listed"}\n${job.url || ""}`;

@@ -21,6 +21,10 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import type { Job } from "@shared/schema";
 import { TRADES, COUNTIES, WORK_TYPES } from "@shared/schema";
+import { useAuth } from "@/lib/auth";
+import { UpgradeChip } from "@/components/paywall-banner";
+import { Crown, Lock } from "lucide-react";
+import { useLocation } from "wouter";
 
 const CHART_COLORS = ["hsl(24,95%,50%)", "hsl(210,70%,45%)", "hsl(142,60%,40%)", "hsl(45,90%,50%)", "hsl(340,65%,50%)", "hsl(270,50%,55%)", "hsl(180,60%,40%)", "hsl(30,80%,55%)"];
 
@@ -130,9 +134,10 @@ function JobCard({ job, onSave, onOpen }: { job: Job; onSave: (id: number) => vo
 }
 
 // Job Detail Drawer
-function JobDetailSheet({ job, open, onClose, onSave }: { job: Job | null; open: boolean; onClose: () => void; onSave: (id: number) => void }) {
+function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null; open: boolean; onClose: () => void; onSave: (id: number) => void; isPro: boolean }) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [, setLocation] = useLocation();
 
   if (!job) return null;
 
@@ -215,30 +220,40 @@ function JobDetailSheet({ job, open, onClose, onSave }: { job: Job | null; open:
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2">
-            {job.url && (
-              <Button asChild className="flex-1 h-10 text-sm font-semibold" data-testid="button-apply">
-                <a href={job.url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="w-4 h-4 mr-1.5" />Apply Now
+          {isPro ? (
+            <div className="flex gap-2">
+              {job.url && (
+                <Button asChild className="flex-1 h-10 text-sm font-semibold" data-testid="button-apply">
+                  <a href={job.url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-4 h-4 mr-1.5" />Apply Now
+                  </a>
+                </Button>
+              )}
+              <Button variant="outline" className="h-10" asChild data-testid="button-directions">
+                <a href={mapUrl} target="_blank" rel="noopener noreferrer">
+                  <Navigation className="w-4 h-4" />
                 </a>
               </Button>
-            )}
-            <Button variant="outline" className="h-10" asChild data-testid="button-directions">
-              <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                <Navigation className="w-4 h-4" />
-              </a>
-            </Button>
-            {phone && (
-              <Button variant="outline" className="h-10" asChild data-testid="button-call">
-                <a href={`tel:${phone}`}>
-                  <Phone className="w-4 h-4" />
-                </a>
+              {phone && (
+                <Button variant="outline" className="h-10" asChild data-testid="button-call">
+                  <a href={`tel:${phone}`}>
+                    <Phone className="w-4 h-4" />
+                  </a>
+                </Button>
+              )}
+              <Button variant="outline" className="h-10" onClick={() => onSave(job.id)} data-testid="button-save-detail">
+                {job.isSaved ? <BookmarkCheck className="w-4 h-4 text-primary" /> : <Bookmark className="w-4 h-4" />}
               </Button>
-            )}
-            <Button variant="outline" className="h-10" onClick={() => onSave(job.id)} data-testid="button-save-detail">
-              {job.isSaved ? <BookmarkCheck className="w-4 h-4 text-primary" /> : <Bookmark className="w-4 h-4" />}
-            </Button>
-          </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-center space-y-2">
+              <Lock className="w-6 h-6 mx-auto text-primary" />
+              <p className="text-sm font-medium">Upgrade to apply, get directions, and save jobs</p>
+              <Button size="sm" className="h-8 text-xs" onClick={() => { onClose(); setLocation("/pricing"); }}>
+                <Crown className="w-3.5 h-3.5 mr-1" />Upgrade to Pro — $19.99/mo
+              </Button>
+            </div>
+          )}
 
           <Separator />
 
@@ -277,6 +292,8 @@ function JobDetailSheet({ job, open, onClose, onSave }: { job: Job | null; open:
 
 export default function Dashboard() {
   const { toast } = useToast();
+  const { isPro } = useAuth();
+  const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [trade, setTrade] = useState("");
   const [county, setCounty] = useState("");
@@ -456,7 +473,21 @@ export default function Dashboard() {
             ) : jobs.length === 0 ? (
               <Card><CardContent className="p-8 text-center"><Briefcase className="w-10 h-10 mx-auto text-muted-foreground mb-3" /><p className="text-sm text-muted-foreground">No jobs match your filters</p></CardContent></Card>
             ) : (
-              jobs.map((job) => <JobCard key={job.id} job={job} onSave={(id) => saveMutation.mutate(id)} onOpen={handleOpenJob} />)
+              <>
+                {jobs.map((job) => <JobCard key={job.id} job={job} onSave={(id) => saveMutation.mutate(id)} onOpen={handleOpenJob} />)}
+                {!isPro && jobs.length >= 8 && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-6 text-center space-y-2">
+                      <Crown className="w-8 h-8 mx-auto text-primary" />
+                      <p className="text-sm font-semibold">You're seeing a limited preview</p>
+                      <p className="text-xs text-muted-foreground">Upgrade to Pro for unlimited listings, apply links, job alerts, and more</p>
+                      <Button size="sm" className="h-8 text-xs mt-1" onClick={() => setLocation("/pricing")}>
+                        <Crown className="w-3.5 h-3.5 mr-1" />Upgrade to Pro — $19.99/mo
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
           </div>
         </TabsContent>
@@ -575,7 +606,7 @@ export default function Dashboard() {
       </Tabs>
 
       {/* Job Detail Drawer */}
-      <JobDetailSheet job={selectedJob} open={sheetOpen} onClose={() => setSheetOpen(false)} onSave={(id) => saveMutation.mutate(id)} />
+      <JobDetailSheet job={selectedJob} open={sheetOpen} onClose={() => setSheetOpen(false)} onSave={(id) => saveMutation.mutate(id)} isPro={isPro} />
     </div>
   );
 }

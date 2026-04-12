@@ -2,7 +2,8 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, like, and, or, sql } from "drizzle-orm";
 import {
-  jobs, alerts, sources, activityLog,
+  users, jobs, alerts, sources, activityLog,
+  type User, type InsertUser,
   type Job, type InsertJob,
   type Alert, type InsertAlert,
   type Source, type InsertSource,
@@ -14,6 +15,17 @@ sqlite.pragma("journal_mode = WAL");
 
 // Create tables if they don't exist
 sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    name TEXT,
+    stripe_customer_id TEXT,
+    subscription_id TEXT,
+    subscription_status TEXT DEFAULT 'none',
+    subscription_end TEXT,
+    created_at TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -43,6 +55,7 @@ sqlite.exec(`
   );
   CREATE TABLE IF NOT EXISTS alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
     keywords TEXT NOT NULL,
     trade TEXT,
     county TEXT,
@@ -80,6 +93,12 @@ sqlite.exec(`
 export const db = drizzle(sqlite);
 
 export interface IStorage {
+  // Users
+  getUserByEmail(email: string): User | undefined;
+  getUserById(id: number): User | undefined;
+  createUser(user: InsertUser & { createdAt: string }): User;
+  updateUser(id: number, data: Partial<User>): User | undefined;
+
   // Jobs
   getJobs(filters?: {
     trade?: string;
@@ -131,6 +150,24 @@ export interface IStorage {
 }
 
 export class SqliteStorage implements IStorage {
+  // Users
+  getUserByEmail(email: string): User | undefined {
+    return db.select().from(users).where(eq(users.email, email.toLowerCase())).get();
+  }
+
+  getUserById(id: number): User | undefined {
+    return db.select().from(users).where(eq(users.id, id)).get();
+  }
+
+  createUser(user: InsertUser & { createdAt: string }): User {
+    return db.insert(users).values({ ...user, email: user.email.toLowerCase() }).returning().get();
+  }
+
+  updateUser(id: number, data: Partial<User>): User | undefined {
+    return db.update(users).set(data).where(eq(users.id, id)).returning().get();
+  }
+
+  // Jobs
   getJobs(filters?: {
     trade?: string;
     county?: string;

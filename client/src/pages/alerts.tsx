@@ -12,6 +12,8 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { PaywallBanner } from "@/components/paywall-banner";
 import {
   Bell, BellOff, Plus, Trash2, MapPin, Zap, Clock,
   Search, Briefcase, DollarSign, Building2, ExternalLink,
@@ -304,6 +306,7 @@ function AlertDetailSheet({ alert, jobs, open, onClose, onSave }: {
 
 export default function AlertsPage() {
   const { toast } = useToast();
+  const { isPro } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [keywords, setKeywords] = useState("");
   const [alertTrade, setAlertTrade] = useState("");
@@ -426,6 +429,16 @@ export default function AlertsPage() {
 
   const activeAlerts = alerts.filter(a => a.isActive).length;
   const totalMatches = alerts.reduce((sum, a) => sum + getAlertMatchCount(a), 0);
+
+  if (!isPro) {
+    return (
+      <div className="p-4 md:p-6">
+        <h2 className="text-lg font-bold mb-1">Job Alerts</h2>
+        <p className="text-xs text-muted-foreground mb-4">Get notified when new jobs match your criteria</p>
+        <PaywallBanner feature="Job Alerts" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5">

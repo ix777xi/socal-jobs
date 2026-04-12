@@ -2,6 +2,18 @@ import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name"),
+  stripeCustomerId: text("stripe_customer_id"),
+  subscriptionId: text("subscription_id"),
+  subscriptionStatus: text("subscription_status").default("none"), // none, active, canceled, past_due, trialing
+  subscriptionEnd: text("subscription_end"), // ISO date when current period ends
+  createdAt: text("created_at").notNull(),
+});
+
 export const jobs = sqliteTable("jobs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
@@ -32,6 +44,7 @@ export const jobs = sqliteTable("jobs", {
 
 export const alerts = sqliteTable("alerts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id"),
   keywords: text("keywords").notNull(),
   trade: text("trade"),
   county: text("county"),
@@ -68,12 +81,27 @@ export const activityLog = sqliteTable("activity_log", {
 });
 
 // Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, stripeCustomerId: true, subscriptionId: true, subscriptionStatus: true, subscriptionEnd: true });
 export const insertJobSchema = createInsertSchema(jobs).omit({ id: true });
 export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true, createdAt: true, lastTriggered: true, matchCount: true });
 export const insertSourceSchema = createInsertSchema(sources).omit({ id: true, lastPolled: true, lastStatus: true, jobsFound: true, errorMessage: true });
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({ id: true });
 
+// Auth schemas
+export const loginSchema = z.object({
+  email: z.string().email("Valid email required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export const registerSchema = z.object({
+  email: z.string().email("Valid email required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  name: z.string().min(1, "Name required").optional(),
+});
+
 // Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Job = typeof jobs.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
 export type Alert = typeof alerts.$inferSelect;

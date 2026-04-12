@@ -2,16 +2,21 @@ import { Switch, Route, Router, Link, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
+import { AuthProvider, useAuth } from "./lib/auth";
 import { Toaster } from "@/components/ui/toaster";
 import { useState, useEffect } from "react";
 import {
-  Briefcase, Bell, Settings, BarChart3, Bookmark,
-  Menu, X, Sun, Moon, Zap,
+  Briefcase, Bell, Settings, Bookmark,
+  Menu, X, Sun, Moon, Zap, Crown, User, LogIn,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import Dashboard from "./pages/dashboard";
 import AlertsPage from "./pages/alerts";
 import SourcesPage from "./pages/sources";
 import SavedPage from "./pages/saved";
+import AuthPage from "./pages/auth";
+import PricingPage from "./pages/pricing";
+import AccountPage from "./pages/account";
 import NotFound from "./pages/not-found";
 
 function AppLayout() {
@@ -20,15 +25,29 @@ function AppLayout() {
   const [dark, setDark] = useState(() =>
     typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
   );
+  const { user, isPro, loading } = useAuth();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
+  // Auth & pricing pages get their own layout
+  if (location === "/auth" || location === "/pricing") {
+    return (
+      <div className={dark ? "dark" : ""}>
+        <Switch>
+          <Route path="/auth" component={AuthPage} />
+          <Route path="/pricing" component={PricingPage} />
+        </Switch>
+        <Toaster />
+      </div>
+    );
+  }
+
   const navItems = [
     { href: "/", label: "Jobs Feed", icon: Briefcase },
-    { href: "/saved", label: "Saved", icon: Bookmark },
-    { href: "/alerts", label: "Alerts", icon: Bell },
+    { href: "/saved", label: "Saved", icon: Bookmark, pro: true },
+    { href: "/alerts", label: "Alerts", icon: Bell, pro: true },
     { href: "/sources", label: "Sources", icon: Settings },
   ];
 
@@ -50,6 +69,9 @@ function AppLayout() {
             <circle cx="24" cy="12" r="3" fill="hsl(24 95% 50%)" />
           </svg>
           <span className="font-semibold text-sm">SoCal Jobs</span>
+          {isPro && (
+            <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0 h-4">PRO</Badge>
+          )}
         </div>
         <button
           onClick={() => setDark(!dark)}
@@ -99,7 +121,12 @@ function AppLayout() {
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}
-                  {item.label === "Alerts" && (
+                  {item.pro && !isPro && (
+                    <span className="ml-auto text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                      PRO
+                    </span>
+                  )}
+                  {item.label === "Alerts" && isPro && (
                     <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
                       <Zap className="w-3 h-3" />
                     </span>
@@ -109,6 +136,55 @@ function AppLayout() {
             );
           })}
         </nav>
+
+        {/* Bottom section: upgrade or account */}
+        <div className="px-3 pb-3 space-y-1">
+          {!isPro && (
+            <Link href="/pricing">
+              <div
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold cursor-pointer bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+                data-testid="nav-upgrade"
+              >
+                <Crown className="w-4 h-4" />
+                Upgrade to Pro
+              </div>
+            </Link>
+          )}
+
+          {user ? (
+            <Link href="/account">
+              <div
+                onClick={() => setSidebarOpen(false)}
+                className={`
+                  flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors
+                  ${location === "/account"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }
+                `}
+                data-testid="nav-account"
+              >
+                <User className="w-4 h-4" />
+                Account
+                {isPro && (
+                  <Badge className="ml-auto bg-primary text-primary-foreground text-[9px] px-1.5 py-0 h-4">PRO</Badge>
+                )}
+              </div>
+            </Link>
+          ) : (
+            <Link href="/auth">
+              <div
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                data-testid="nav-sign-in"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </div>
+            </Link>
+          )}
+        </div>
 
         <div className="hidden md:flex items-center justify-between px-5 py-4 border-t border-border">
           <span className="text-xs text-muted-foreground">Theme</span>
@@ -137,6 +213,8 @@ function AppLayout() {
           <Route path="/saved" component={SavedPage} />
           <Route path="/alerts" component={AlertsPage} />
           <Route path="/sources" component={SourcesPage} />
+          <Route path="/account" component={AccountPage} />
+          <Route path="/pricing" component={PricingPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
@@ -149,9 +227,11 @@ function AppLayout() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router hook={useHashLocation}>
-        <AppLayout />
-      </Router>
+      <AuthProvider>
+        <Router hook={useHashLocation}>
+          <AppLayout />
+        </Router>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
