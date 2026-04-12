@@ -6,6 +6,17 @@ import { storage } from "./storage";
 import { loginSchema, registerSchema } from "@shared/schema";
 import type { User } from "@shared/schema";
 
+// Admin email — auto-promoted to admin on every login/register/OAuth
+const ADMIN_EMAIL = "calebj7walker@gmail.com";
+
+function promoteIfAdmin(user: User): User {
+  if (user.email.toLowerCase() === ADMIN_EMAIL && !user.isAdmin) {
+    const updated = storage.updateUser(user.id, { isAdmin: true });
+    return updated || user;
+  }
+  return user;
+}
+
 // Simple password hashing with scrypt-like approach using pbkdf2
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
@@ -116,6 +127,7 @@ export function registerAuthRoutes(app: Express) {
               if (user.avatarUrl !== avatarUrl || user.name !== name) {
                 user = storage.updateUser(user.id, { avatarUrl, name }) || user;
               }
+              user = promoteIfAdmin(user);
               return done(null, user);
             }
 
@@ -128,6 +140,7 @@ export function registerAuthRoutes(app: Express) {
                 avatarUrl: avatarUrl || user.avatarUrl,
                 authProvider: user.passwordHash ? "local" : "google",
               }) || user;
+              user = promoteIfAdmin(user);
               return done(null, user);
             }
 
@@ -141,6 +154,7 @@ export function registerAuthRoutes(app: Express) {
               authProvider: "google",
               createdAt: new Date().toISOString(),
             } as any);
+            user = promoteIfAdmin(user);
 
             return done(null, user);
           } catch (err) {
@@ -195,12 +209,13 @@ export function registerAuthRoutes(app: Express) {
       return res.status(409).json({ error: "An account with this email already exists" });
     }
 
-    const user = storage.createUser({
+    let user = storage.createUser({
       email: email.toLowerCase(),
       passwordHash: hashPassword(password),
       name: name || null,
       createdAt: new Date().toISOString(),
     });
+    user = promoteIfAdmin(user);
 
     req.session.userId = user.id;
     res.json({
@@ -210,6 +225,7 @@ export function registerAuthRoutes(app: Express) {
       avatarUrl: user.avatarUrl,
       authProvider: user.authProvider,
       subscriptionStatus: user.subscriptionStatus,
+      isAdmin: user.isAdmin,
     });
   });
 
@@ -233,14 +249,18 @@ export function registerAuthRoutes(app: Express) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    req.session.userId = user.id;
+    // Auto-promote admin on login
+    const promoted = promoteIfAdmin(user);
+
+    req.session.userId = promoted.id;
     res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl,
-      authProvider: user.authProvider,
-      subscriptionStatus: user.subscriptionStatus,
+      id: promoted.id,
+      email: promoted.email,
+      name: promoted.name,
+      avatarUrl: promoted.avatarUrl,
+      authProvider: promoted.authProvider,
+      subscriptionStatus: promoted.subscriptionStatus,
+      isAdmin: promoted.isAdmin,
     });
   });
 
