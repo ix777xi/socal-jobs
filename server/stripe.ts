@@ -183,11 +183,12 @@ export function registerStripeRoutes(app: Express) {
         // Raw body needed for webhook verification
         // Express json middleware needs to be skipped for this route
         // For now, trust the event if no webhook secret is set
-        event = stripe!.webhooks.constructEvent(
-          (req as any).rawBody || JSON.stringify(req.body),
-          sig,
-          webhookSecret
-        );
+        const rawBody = (req as any).rawBody;
+        if (!rawBody) {
+          console.error("[Stripe] No raw body available for webhook verification");
+          return res.status(400).json({ error: "No raw body" });
+        }
+        event = stripe!.webhooks.constructEvent(rawBody, sig, webhookSecret);
       } else {
         // No webhook secret — parse directly (OK for initial setup)
         event = req.body as Stripe.Event;
