@@ -18,6 +18,48 @@ const PRICE_AMOUNT = 999; // $9.99
 const PRICE_CURRENCY = "usd";
 const PRICE_INTERVAL = "week" as const;
 
+// Helper: find or create a billing portal configuration
+let cachedPortalConfigId: string | null = null;
+
+async function getOrCreatePortalConfig(): Promise<string> {
+  if (!stripe) throw new Error("Stripe not configured");
+  if (cachedPortalConfigId) return cachedPortalConfigId;
+
+  // Check if a portal config already exists
+  const configs = await stripe.billingPortal.configurations.list({ limit: 1 });
+  if (configs.data.length > 0 && configs.data[0].active) {
+    cachedPortalConfigId = configs.data[0].id;
+    return cachedPortalConfigId;
+  }
+
+  // Create a new portal configuration
+  const config = await stripe.billingPortal.configurations.create({
+    business_profile: {
+      headline: "Orange Blue Collar Jobs — Manage your subscription",
+    },
+    features: {
+      customer_update: {
+        enabled: true,
+        allowed_updates: ["email", "name"],
+      },
+      invoice_history: {
+        enabled: true,
+      },
+      payment_method_update: {
+        enabled: true,
+      },
+      subscription_cancel: {
+        enabled: true,
+        mode: "at_period_end",
+      },
+    },
+  });
+
+  cachedPortalConfigId = config.id;
+  console.log(`[Stripe] Created billing portal config: ${config.id}`);
+  return cachedPortalConfigId;
+}
+
 // Helper: find or create a Stripe price for the subscription
 let cachedPriceId: string | null = null;
 
@@ -126,9 +168,13 @@ export function registerStripeRoutes(app: Express) {
         return res.status(400).json({ error: "No billing account found" });
       }
 
+      // Ensure portal configuration exists
+      const configId = await getOrCreatePortalConfig();
+
       const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
       const session = await stripe!.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
+        configuration: configId,
         return_url: `${origin}/#/account`,
       });
 
