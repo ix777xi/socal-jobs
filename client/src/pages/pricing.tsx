@@ -95,7 +95,7 @@ export default function PricingPage() {
               <CardTitle className="text-base font-semibold">Free</CardTitle>
               <div className="mt-2">
                 <span className="text-3xl font-bold">$0</span>
-                <span className="text-sm text-muted-foreground">/month</span>
+                <span className="text-sm text-muted-foreground">/forever</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">Limited preview of job listings</p>
             </CardHeader>
@@ -138,8 +138,8 @@ export default function PricingPage() {
                 <Zap className="w-4 h-4 text-primary" />
               </CardTitle>
               <div className="mt-2">
-                <span className="text-3xl font-bold">$19.99</span>
-                <span className="text-sm text-muted-foreground">/month</span>
+                <span className="text-3xl font-bold">$9.99</span>
+                <span className="text-sm text-muted-foreground">/week</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">Full access, unlimited listings & alerts</p>
             </CardHeader>

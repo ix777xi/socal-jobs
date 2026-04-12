@@ -45,7 +45,7 @@ export function PaywallBanner({ feature }: { feature: string }) {
             data-testid="button-paywall-upgrade"
           >
             <Crown className="w-4 h-4 mr-1.5" />
-            Upgrade to Pro — $19.99/mo
+            Upgrade to Pro — $9.99/wk
             <ArrowRight className="w-4 h-4 ml-1.5" />
           </Button>
         )}

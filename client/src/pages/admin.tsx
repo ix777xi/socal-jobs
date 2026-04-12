@@ -101,7 +101,7 @@ function PaywallToggle() {
             <p className="text-sm font-medium">{paywallEnabled ? "Paywall is ON" : "Paywall is OFF"}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {paywallEnabled
-                ? "Users must subscribe ($19.99/mo) to access full job details, apply links, saved jobs, alerts, and job posting."
+                ? "Users must subscribe ($9.99/wk) to access full job details, apply links, saved jobs, alerts, and job posting."
                 : "All features are free for everyone. No sign-in or subscription required for Pro content."}
             </p>
           </div>
@@ -119,7 +119,7 @@ function PaywallToggle() {
               <>
                 <li>Free users: 8 jobs, no apply links, no full details</li>
                 <li>Pro features: alerts, saved jobs, job posting, unlimited listings</li>
-                <li>Subscription: $19.99/month via Stripe</li>
+                <li>Subscription: $9.99/week via Stripe</li>
               </>
             ) : (
               <>

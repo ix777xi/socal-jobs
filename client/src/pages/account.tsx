@@ -169,7 +169,7 @@ export default function AccountPage() {
             <div className="flex items-center gap-2">
               {isPro ? (
                 <Badge className="bg-primary text-primary-foreground text-xs">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />Pro — $19.99/mo
+                  <CheckCircle2 className="w-3 h-3 mr-1" />Pro — $9.99/wk
                 </Badge>
               ) : user.subscriptionStatus === "canceled" ? (
                 <Badge variant="secondary" className="text-xs">
@@ -206,7 +206,7 @@ export default function AccountPage() {
                 data-testid="button-upgrade"
               >
                 <Crown className="w-4 h-4 mr-2" />
-                Upgrade to Pro — $19.99/mo
+                Upgrade to Pro — $9.99/wk
               </Button>
             </>
           )}

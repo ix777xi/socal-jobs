@@ -250,7 +250,7 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
               <Lock className="w-6 h-6 mx-auto text-primary" />
               <p className="text-sm font-medium">Upgrade to apply, get directions, and save jobs</p>
               <Button size="sm" className="h-8 text-xs" onClick={() => { onClose(); setLocation("/pricing"); }}>
-                <Crown className="w-3.5 h-3.5 mr-1" />Upgrade to Pro — $19.99/mo
+                <Crown className="w-3.5 h-3.5 mr-1" />Upgrade to Pro — $9.99/wk
               </Button>
             </div>
           )}
@@ -482,7 +482,7 @@ export default function Dashboard() {
                       <p className="text-sm font-semibold">You're seeing a limited preview</p>
                       <p className="text-xs text-muted-foreground">Upgrade to Pro for unlimited listings, apply links, job alerts, and more</p>
                       <Button size="sm" className="h-8 text-xs mt-1" onClick={() => setLocation("/pricing")}>
-                        <Crown className="w-3.5 h-3.5 mr-1" />Upgrade to Pro — $19.99/mo
+                        <Crown className="w-3.5 h-3.5 mr-1" />Upgrade to Pro — $9.99/wk
                       </Button>
                     </CardContent>
                   </Card>

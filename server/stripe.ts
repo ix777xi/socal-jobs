@@ -14,9 +14,9 @@ if (stripeSecretKey) {
   console.warn("[Stripe] No STRIPE_SECRET_KEY found — subscription features disabled");
 }
 
-const PRICE_AMOUNT = 1999; // $19.99
+const PRICE_AMOUNT = 999; // $9.99
 const PRICE_CURRENCY = "usd";
-const PRICE_INTERVAL = "month" as const;
+const PRICE_INTERVAL = "week" as const;
 
 // Helper: find or create a Stripe price for the subscription
 let cachedPriceId: string | null = null;
