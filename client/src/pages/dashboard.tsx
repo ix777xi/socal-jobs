@@ -50,6 +50,17 @@ function formatJobDescription(desc: string | null | undefined): string {
     '<a href="mailto:$1" class="text-primary underline hover:text-primary/80">$1</a>'
   );
 
+  // Linkify phone numbers (make them clickable tel: links)
+  html = html.replace(
+    /((?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})/g,
+    (match) => {
+      // Skip fake 555 numbers
+      if (match.includes('555-')) return match;
+      const digits = match.replace(/\D/g, '');
+      return `<a href="tel:${digits}" class="text-primary underline hover:text-primary/80">${match}</a>`;
+    }
+  );
+
   // Format bullet lines (- or * or •)
   html = html.replace(/^\s*[-*•]\s+(.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
 
@@ -190,8 +201,15 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
 
   if (!job) return null;
 
-  // Only show phone for user-posted jobs (has contactPhone field), not API-sourced
-  const phone = (job as any).contactPhone || null;
+  // Use contactPhone for user-posted jobs, or extract real phone numbers from description
+  // Skip fake 555 numbers (used in placeholder data)
+  const phone = (job as any).contactPhone || (() => {
+    const matches = job.description?.match(/(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g);
+    if (!matches) return null;
+    // Filter out fake 555 numbers
+    const real = matches.find(m => !m.includes('555-'));
+    return real || null;
+  })();
 
   function handleCopy() {
     const text = `${job!.title} at ${job!.company}\n${job!.location}\nPay: ${job!.payRange || "Not listed"}\n${job!.url || ""}`;
