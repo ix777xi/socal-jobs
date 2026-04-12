@@ -10,6 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   User, Crown, CreditCard, LogOut, ExternalLink,
   CheckCircle2, AlertTriangle, Loader2, Mail, Calendar,
+  Shield, Briefcase, Bell, Bookmark, FileText, Zap,
 } from "lucide-react";
 
 export default function AccountPage() {
@@ -196,35 +197,131 @@ export default function AccountPage() {
             </div>
           )}
 
-          <Separator />
+          {!isPro && user.subscriptionStatus !== "canceled" && user.subscriptionStatus !== "past_due" && (
+            <>
+              <Separator />
+              <Button
+                className="w-full h-9 text-sm font-semibold"
+                onClick={() => setLocation("/pricing")}
+                data-testid="button-upgrade"
+              >
+                <Crown className="w-4 h-4 mr-2" />
+                Upgrade to Pro — $19.99/mo
+              </Button>
+            </>
+          )}
 
-          {isPro || user.subscriptionStatus === "canceled" || user.subscriptionStatus === "past_due" ? (
-            <Button
-              variant="outline"
-              className="w-full h-9 text-sm"
-              onClick={handleManageBilling}
-              disabled={portalLoading}
-              data-testid="button-manage-billing"
-            >
-              {portalLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <CreditCard className="w-4 h-4 mr-2" />
-              )}
-              Manage Billing
-            </Button>
-          ) : (
-            <Button
-              className="w-full h-9 text-sm font-semibold"
-              onClick={() => setLocation("/pricing")}
-              data-testid="button-upgrade"
-            >
-              <Crown className="w-4 h-4 mr-2" />
-              Upgrade to Pro — $19.99/mo
-            </Button>
+          {(user.subscriptionStatus === "canceled" || user.subscriptionStatus === "past_due") && (
+            <>
+              <Separator />
+              <div className="rounded-lg bg-muted/50 p-3 space-y-2">
+                {user.subscriptionStatus === "canceled" && (
+                  <p className="text-xs text-muted-foreground">
+                    Your subscription has been canceled. You still have Pro access until your current billing period ends.
+                  </p>
+                )}
+                {user.subscriptionStatus === "past_due" && (
+                  <p className="text-xs text-destructive">
+                    Your payment failed. Please update your payment method to keep Pro access.
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full h-9 text-sm"
+                  onClick={handleManageBilling}
+                  disabled={portalLoading}
+                  data-testid="button-manage-billing"
+                >
+                  {portalLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <CreditCard className="w-4 h-4 mr-2" />
+                  )}
+                  {user.subscriptionStatus === "past_due" ? "Update Payment Method" : "Resubscribe"}
+                </Button>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* Billing Management — Pro subscribers only */}
+      {isPro && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-primary" />
+              Manage Billing
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              View invoices, update your payment method, or cancel your subscription through the Stripe billing portal.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                onClick={handleManageBilling}
+                disabled={portalLoading}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-center cursor-pointer disabled:opacity-50"
+                data-testid="button-billing-invoices"
+              >
+                <FileText className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-medium">Invoices</span>
+                <span className="text-[10px] text-muted-foreground">View history</span>
+              </button>
+              <button
+                onClick={handleManageBilling}
+                disabled={portalLoading}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-center cursor-pointer disabled:opacity-50"
+                data-testid="button-billing-payment"
+              >
+                <CreditCard className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-medium">Payment</span>
+                <span className="text-[10px] text-muted-foreground">Update card</span>
+              </button>
+              <button
+                onClick={handleManageBilling}
+                disabled={portalLoading}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-center cursor-pointer disabled:opacity-50"
+                data-testid="button-billing-cancel"
+              >
+                <AlertTriangle className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-medium">Cancel Plan</span>
+                <span className="text-[10px] text-muted-foreground">End subscription</span>
+              </button>
+            </div>
+
+            {portalLoading && (
+              <div className="flex items-center justify-center gap-2 py-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground">Opening billing portal...</span>
+              </div>
+            )}
+
+            <Separator />
+
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Your Pro benefits</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { icon: Briefcase, label: "Unlimited job listings" },
+                  { icon: ExternalLink, label: "Apply links & full details" },
+                  { icon: Bookmark, label: "Save jobs" },
+                  { icon: Bell, label: "Job alerts" },
+                  { icon: Zap, label: "Post your own jobs" },
+                  { icon: Shield, label: "Priority support" },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-1.5 py-1">
+                    <CheckCircle2 className="w-3 h-3 text-primary flex-shrink-0" />
+                    <span className="text-[11px] text-muted-foreground">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Logout */}
       <Button
