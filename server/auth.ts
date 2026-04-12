@@ -43,8 +43,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// Middleware: require active subscription
+// Middleware: require active subscription (bypassed when paywall is off)
 export function requireSubscription(req: Request, res: Response, next: NextFunction) {
+  // If paywall is disabled globally, skip subscription check
+  if (!storage.isPaywallEnabled()) {
+    return next();
+  }
   const user = (req as any).user as User | undefined;
   if (!user) {
     return res.status(401).json({ error: "Authentication required" });
@@ -52,6 +56,19 @@ export function requireSubscription(req: Request, res: Response, next: NextFunct
   if (user.subscriptionStatus !== "active" && user.subscriptionStatus !== "trialing") {
     return res.status(403).json({ error: "Subscription required", code: "SUBSCRIPTION_REQUIRED" });
   }
+  next();
+}
+
+// Middleware: require admin role
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  if (!user.isAdmin) {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  (req as any).user = user;
   next();
 }
 
@@ -241,6 +258,14 @@ export function registerAuthRoutes(app: Express) {
       authProvider: user.authProvider,
       subscriptionStatus: user.subscriptionStatus,
       subscriptionEnd: user.subscriptionEnd,
+      isAdmin: user.isAdmin,
+    });
+  });
+
+  // Public site settings (paywall status)
+  app.get("/api/site-settings/public", (_req, res) => {
+    res.json({
+      paywallEnabled: storage.isPaywallEnabled(),
     });
   });
 

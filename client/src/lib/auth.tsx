@@ -9,12 +9,15 @@ interface AuthUser {
   authProvider?: string;
   subscriptionStatus: string;
   subscriptionEnd?: string | null;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isPro: boolean;
+  isAdmin: boolean;
+  paywallEnabled: boolean;
   googleEnabled: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
@@ -28,8 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [paywallEnabled, setPaywallEnabled] = useState(true);
 
-  const isPro = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "trialing";
+  const isAdmin = !!user?.isAdmin;
+  const isPro = !paywallEnabled || user?.subscriptionStatus === "active" || user?.subscriptionStatus === "trialing";
 
   const refresh = useCallback(async () => {
     try {
@@ -46,6 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     apiRequest("GET", "/api/auth/providers")
       .then((res) => res.json())
       .then((data) => setGoogleEnabled(!!data.google))
+      .catch(() => {});
+
+    // Check site settings
+    apiRequest("GET", "/api/site-settings/public")
+      .then((res) => res.json())
+      .then((data) => setPaywallEnabled(data.paywallEnabled !== false))
       .catch(() => {});
 
     refresh().finally(() => setLoading(false));
@@ -68,8 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }
 
+  // Allow admin to toggle paywall locally
+  const updatePaywallEnabled = useCallback((enabled: boolean) => {
+    setPaywallEnabled(enabled);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, isPro, googleEnabled, login, register, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, isPro, isAdmin, paywallEnabled, googleEnabled, login, register, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

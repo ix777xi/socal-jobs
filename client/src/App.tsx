@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useState, useEffect } from "react";
 import {
   Briefcase, Bell, Settings, Bookmark,
-  Menu, X, Sun, Moon, Zap, Crown, User, LogIn, PlusCircle,
+  Menu, X, Sun, Moon, Zap, Crown, User, LogIn, PlusCircle, Shield,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Dashboard from "./pages/dashboard";
@@ -18,6 +18,7 @@ import AuthPage from "./pages/auth";
 import PricingPage from "./pages/pricing";
 import AccountPage from "./pages/account";
 import PostJobPage from "./pages/post-job";
+import AdminPage from "./pages/admin";
 import NotFound from "./pages/not-found";
 
 function AppLayout() {
@@ -26,7 +27,7 @@ function AppLayout() {
   const [dark, setDark] = useState(() =>
     typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
   );
-  const { user, isPro, loading } = useAuth();
+  const { user, isPro, isAdmin, loading } = useAuth();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -51,6 +52,7 @@ function AppLayout() {
     { href: "/saved", label: "Saved", icon: Bookmark, pro: true },
     { href: "/alerts", label: "Alerts", icon: Bell, pro: true },
     { href: "/sources", label: "Sources", icon: Settings },
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
   ];
 
   return (
@@ -215,6 +217,7 @@ function AppLayout() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/post-job" component={PostJobPage} />
+          <Route path="/admin" component={AdminPage} />
           <Route path="/saved" component={SavedPage} />
           <Route path="/alerts" component={AlertsPage} />
           <Route path="/sources" component={SourcesPage} />

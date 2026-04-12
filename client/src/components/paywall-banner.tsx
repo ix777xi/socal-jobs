@@ -15,7 +15,7 @@ export function PaywallBanner({ feature }: { feature: string }) {
       <div className="space-y-1.5 max-w-sm">
         <h3 className="text-base font-semibold">{feature} — Pro Only</h3>
         <p className="text-sm text-muted-foreground">
-          Upgrade to SoCal Jobs Pro to unlock {feature.toLowerCase()}, unlimited listings, apply links, and more.
+          Upgrade to Orange Blue Collar Pro to unlock {feature.toLowerCase()}, unlimited listings, apply links, and more.
         </p>
       </div>
       <div className="flex items-center gap-3">

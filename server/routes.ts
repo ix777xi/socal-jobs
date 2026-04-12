@@ -4,7 +4,7 @@ import session from "express-session";
 import { storage } from "./storage";
 import { insertAlertSchema, postJobSchema } from "@shared/schema";
 import { seedInitialJobs, startPolling, stopPolling, isPolling, pollForNewJobs } from "./ingestion";
-import { registerAuthRoutes, requireAuth, requireSubscription, getSessionUser } from "./auth";
+import { registerAuthRoutes, requireAuth, requireSubscription, requireAdmin, getSessionUser } from "./auth";
 import { registerStripeRoutes } from "./stripe";
 
 export async function registerRoutes(server: Server, app: Express) {
@@ -38,7 +38,8 @@ export async function registerRoutes(server: Server, app: Express) {
     const { trade, county, workType, search, urgent, saved, limit, offset } = req.query;
 
     const user = getSessionUser(req);
-    const isPro = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "trialing";
+    const paywallOff = !storage.isPaywallEnabled();
+    const isPro = paywallOff || user?.subscriptionStatus === "active" || user?.subscriptionStatus === "trialing";
 
     // Free users: max 8 jobs, no saved filter
     const effectiveLimit = isPro
@@ -72,7 +73,8 @@ export async function registerRoutes(server: Server, app: Express) {
 
   app.get("/api/jobs/:id", (req, res) => {
     const user = getSessionUser(req);
-    const isPro = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "trialing";
+    const paywallOff = !storage.isPaywallEnabled();
+    const isPro = paywallOff || user?.subscriptionStatus === "active" || user?.subscriptionStatus === "trialing";
 
     const job = storage.getJob(parseInt(req.params.id));
     if (!job) return res.status(404).json({ error: "Job not found" });
@@ -217,6 +219,55 @@ export async function registerRoutes(server: Server, app: Express) {
   app.get("/api/activity", (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     res.json(storage.getActivityLog(limit));
+  });
+
+  // ---- Admin Routes ----
+  app.get("/api/admin/settings", requireAdmin, (_req, res) => {
+    const settings = storage.getAllSettings();
+    res.json(settings);
+  });
+
+  app.post("/api/admin/settings", requireAdmin, (req, res) => {
+    const { key, value } = req.body;
+    if (!key || typeof value !== "string") {
+      return res.status(400).json({ error: "key and value required" });
+    }
+    storage.setSetting(key, value);
+    res.json({ success: true, key, value });
+  });
+
+  app.get("/api/admin/users", requireAdmin, (_req, res) => {
+    const allUsers = storage.getAllUsers().map(u => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      authProvider: u.authProvider,
+      subscriptionStatus: u.subscriptionStatus,
+      subscriptionEnd: u.subscriptionEnd,
+      isAdmin: u.isAdmin,
+      createdAt: u.createdAt,
+    }));
+    res.json(allUsers);
+  });
+
+  app.patch("/api/admin/users/:id", requireAdmin, (req, res) => {
+    const userId = parseInt(req.params.id);
+    const user = storage.getUserById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const { subscriptionStatus, isAdmin } = req.body;
+    const updates: any = {};
+    if (subscriptionStatus !== undefined) updates.subscriptionStatus = subscriptionStatus;
+    if (isAdmin !== undefined) updates.isAdmin = isAdmin;
+
+    const updated = storage.updateUser(userId, updates);
+    res.json({
+      id: updated!.id,
+      email: updated!.email,
+      name: updated!.name,
+      subscriptionStatus: updated!.subscriptionStatus,
+      isAdmin: updated!.isAdmin,
+    });
   });
 
   // ---- Ingestion Controls ----

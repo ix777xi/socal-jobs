@@ -15,6 +15,7 @@ export const users = sqliteTable("users", {
   subscriptionStatus: text("subscription_status").default("none"), // none, active, canceled, past_due, trialing
   subscriptionEnd: text("subscription_end"), // ISO date when current period ends
   createdAt: text("created_at").notNull(),
+  isAdmin: integer("is_admin", { mode: "boolean" }).default(false),
 });
 
 export const jobs = sqliteTable("jobs", {
@@ -75,6 +76,13 @@ export const sources = sqliteTable("sources", {
   jobsFound: integer("jobs_found").default(0),
   errorMessage: text("error_message"),
   config: text("config"), // JSON config
+});
+
+export const siteSettings = sqliteTable("site_settings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const activityLog = sqliteTable("activity_log", {

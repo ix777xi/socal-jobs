@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, like, and, or, sql } from "drizzle-orm";
 import {
-  users, jobs, alerts, sources, activityLog,
+  users, jobs, alerts, sources, activityLog, siteSettings,
   type User, type InsertUser,
   type Job, type InsertJob,
   type Alert, type InsertAlert,
@@ -27,7 +27,8 @@ sqlite.exec(`
     subscription_id TEXT,
     subscription_status TEXT DEFAULT 'none',
     subscription_end TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    is_admin INTEGER DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,6 +116,30 @@ try {
 try {
   sqlite.exec(`ALTER TABLE jobs ADD COLUMN contact_phone TEXT`);
 } catch {}
+try {
+  sqlite.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`);
+} catch {}
+
+// Create site_settings table
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS site_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+`);
+
+// Seed default settings
+try {
+  sqlite.exec(`INSERT INTO site_settings (key, value, updated_at) VALUES ('paywall_enabled', 'true', '${new Date().toISOString()}')`);
+} catch {}
+try {
+  sqlite.exec(`INSERT INTO site_settings (key, value, updated_at) VALUES ('registration_enabled', 'true', '${new Date().toISOString()}')`);
+} catch {}
+
+// Auto-promote admin
+sqlite.exec(`UPDATE users SET is_admin = 1 WHERE email = 'calebj7walker@gmail.com'`);
 
 export const db = drizzle(sqlite);
 
@@ -166,6 +191,15 @@ export interface IStorage {
   // User-posted jobs
   getJobsByUser(userId: number): Job[];
   deleteJob(id: number): void;
+
+  // Site Settings
+  getSetting(key: string): string | undefined;
+  setSetting(key: string, value: string): void;
+  getAllSettings(): { key: string; value: string; updatedAt: string }[];
+
+  // Admin
+  getAllUsers(): User[];
+  isPaywallEnabled(): boolean;
 
   // Stats
   getStats(): {
@@ -403,6 +437,35 @@ export class SqliteStorage implements IStorage {
 
   deleteJob(id: number): void {
     db.delete(jobs).where(eq(jobs.id, id)).run();
+  }
+
+  // Site Settings
+  getSetting(key: string): string | undefined {
+    const row = db.select().from(siteSettings).where(eq(siteSettings.key, key)).get();
+    return row?.value;
+  }
+
+  setSetting(key: string, value: string): void {
+    const existing = db.select().from(siteSettings).where(eq(siteSettings.key, key)).get();
+    if (existing) {
+      db.update(siteSettings).set({ value, updatedAt: new Date().toISOString() }).where(eq(siteSettings.key, key)).run();
+    } else {
+      db.insert(siteSettings).values({ key, value, updatedAt: new Date().toISOString() }).run();
+    }
+  }
+
+  getAllSettings(): { key: string; value: string; updatedAt: string }[] {
+    return db.select({ key: siteSettings.key, value: siteSettings.value, updatedAt: siteSettings.updatedAt }).from(siteSettings).all();
+  }
+
+  // Admin
+  getAllUsers(): User[] {
+    return db.select().from(users).orderBy(desc(users.createdAt)).all();
+  }
+
+  isPaywallEnabled(): boolean {
+    const val = this.getSetting("paywall_enabled");
+    return val !== "false";
   }
 }
 
