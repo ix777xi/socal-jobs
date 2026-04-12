@@ -28,6 +28,55 @@ import { useLocation } from "wouter";
 
 const CHART_COLORS = ["hsl(24,95%,50%)", "hsl(210,70%,45%)", "hsl(142,60%,40%)", "hsl(45,90%,50%)", "hsl(340,65%,50%)", "hsl(270,50%,55%)", "hsl(180,60%,40%)", "hsl(30,80%,55%)"];
 
+// Format job descriptions: linkify URLs, format bullet points/lists, bold headers, paragraphs
+function formatJobDescription(desc: string | null | undefined): string {
+  if (!desc) return "<p class='text-muted-foreground'>No description available.</p>";
+
+  // Sanitize HTML tags (allow none from raw input)
+  let html = desc
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Linkify URLs
+  html = html.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80 break-all">$1</a>'
+  );
+
+  // Linkify email addresses
+  html = html.replace(
+    /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+    '<a href="mailto:$1" class="text-primary underline hover:text-primary/80">$1</a>'
+  );
+
+  // Format bullet lines (- or * or •)
+  html = html.replace(/^\s*[-*•]\s+(.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
+
+  // Wrap consecutive <li> items in <ul>
+  html = html.replace(
+    /(<li[^>]*>.*?<\/li>\n?)+/g,
+    (match) => `<ul class="space-y-1 my-2">${match}</ul>`
+  );
+
+  // Bold common section headers (Requirements:, Location:, Pay:, etc.)
+  html = html.replace(
+    /^(Requirements|Qualifications|Responsibilities|Benefits|Location|Pay|Salary|Schedule|Experience|Skills|About|Contact|How to Apply|Job Type|Compensation|Duties|Description|About Us|What We Offer|Who We Are)\s*:/gim,
+    '<strong class="font-semibold text-foreground">$1:</strong>'
+  );
+
+  // Convert double newlines to paragraph breaks, single newlines to <br>
+  html = html
+    .split(/\n{2,}/)
+    .map((para) => `<p class="mb-3">${para.trim()}</p>`)
+    .join("");
+
+  // Convert remaining single newlines inside paragraphs to <br>
+  html = html.replace(/(?<!<\/li>|<\/ul>|<\/p>)\n/g, "<br>");
+
+  return html;
+}
+
 function getTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -141,7 +190,8 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
 
   if (!job) return null;
 
-  const phone = job.description?.match(/\(\d{3}\)\s?\d{3}-\d{4}/)?.[0];
+  // Only show phone for user-posted jobs (has contactPhone field), not API-sourced
+  const phone = (job as any).contactPhone || null;
   const mapUrl = job.lat && job.lng
     ? `https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.location)}`;
@@ -225,7 +275,7 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
               {job.url && (
                 <Button asChild className="flex-1 h-10 text-sm font-semibold" data-testid="button-apply">
                   <a href={job.url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-4 h-4 mr-1.5" />Apply Now
+                    <ExternalLink className="w-4 h-4 mr-1.5" />View Original Posting
                   </a>
                 </Button>
               )}
@@ -260,7 +310,7 @@ function JobDetailSheet({ job, open, onClose, onSave, isPro }: { job: Job | null
           {/* Description */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Description</h4>
-            <div className="text-sm leading-relaxed whitespace-pre-line">{job.description || "No description available."}</div>
+            <div className="text-sm leading-relaxed job-description" dangerouslySetInnerHTML={{ __html: formatJobDescription(job.description) }} />
           </div>
 
           <Separator />

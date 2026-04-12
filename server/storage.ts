@@ -141,6 +141,39 @@ try {
 // Auto-promote admin
 sqlite.exec(`UPDATE users SET is_admin = 1 WHERE email = 'calebj7walker@gmail.com'`);
 
+// One-time cleanup: remove fake 555 phone numbers from API-sourced job descriptions
+try {
+  sqlite.exec(`
+    UPDATE jobs
+    SET description = REPLACE(
+      REPLACE(
+        REPLACE(description, 'Contact: ' || SUBSTR(description, INSTR(description, '555-'), -14) || CHAR(10), ''),
+        'Call ', ''
+      ),
+      description, description
+    )
+    WHERE posted_by_user_id IS NULL
+    AND description LIKE '%555-%'
+  `);
+  // Simpler approach: strip lines containing fake 555 numbers
+  const fakePhoneJobs = sqlite.prepare(`SELECT id, description, snippet FROM jobs WHERE posted_by_user_id IS NULL AND (description LIKE '%555-%' OR snippet LIKE '%555-%')`).all() as any[];
+  const updateStmt = sqlite.prepare(`UPDATE jobs SET description = ?, snippet = ? WHERE id = ?`);
+  for (const job of fakePhoneJobs) {
+    let desc = job.description || "";
+    let snippet = job.snippet || "";
+    // Remove lines with fake 555 phone numbers
+    desc = desc.replace(/\n?.*\(\d{3}\)\s*555-\d{4}.*/g, "");
+    desc = desc.replace(/Contact:\s*$/gm, "").trim();
+    snippet = snippet.replace(/Call\s*\(\d{3}\)\s*555-\d{4}/g, "").trim();
+    updateStmt.run(desc, snippet, job.id);
+  }
+  if (fakePhoneJobs.length > 0) {
+    console.log(`[Storage] Cleaned fake phone numbers from ${fakePhoneJobs.length} job descriptions`);
+  }
+} catch (e) {
+  // Ignore if already cleaned
+}
+
 export const db = drizzle(sqlite);
 
 export interface IStorage {

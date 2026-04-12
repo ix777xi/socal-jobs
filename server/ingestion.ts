@@ -547,10 +547,7 @@ function generateLocalJobs(): FetchResult {
     "Urgent need for skilled tradespeople. Union rates and benefits. Must have valid driver's license. OSHA 10 certification preferred. Pension plan and health coverage. Steady year-round work.",
   ];
 
-  const contactPhones = [
-    "(714) 555-0142", "(562) 555-0198", "(619) 555-0236", "(949) 555-0317",
-    "(213) 555-0425", "(858) 555-0183", "(310) 555-0291", "(657) 555-0364",
-  ];
+  // No fake phone numbers — only user-posted jobs should have contact info
 
   const sourceTags = ["Craigslist", "Indeed", "ZipRecruiter", "Facebook Jobs", "Local Board", "Union Hall", "Staffing Agency"];
   const workTypes = ["full-time", "part-time", "temp", "contract", "day-labor"] as const;
@@ -561,7 +558,6 @@ function generateLocalJobs(): FetchResult {
     const src = sourceTags[i % sourceTags.length];
     const wType = t.urgent && Math.random() > 0.5 ? "day-labor" : workTypes[Math.floor(Math.random() * 3)];
     const payType = t.pay.includes("/day") ? "daily" : t.pay.includes("/wk") ? "weekly" : "hourly";
-    const phone = contactPhones[i % contactPhones.length];
     const jobUrl = generateJobUrl(src, t.title, t.company, t.location);
     const mapUrl = generateMapUrl(t.location, coords?.lat, coords?.lng);
 
@@ -572,7 +568,7 @@ function generateLocalJobs(): FetchResult {
       lat: coords?.lat ?? null, lng: coords?.lng ?? null,
       trade: t.trade, payRange: t.pay, payType,
       workType: wType,
-      description: `${t.title} at ${t.company}\n\n${desc}\n\nLocation: ${t.location}\nPay: ${t.pay}\nContact: ${phone}\n\nTo apply, visit the job posting link or call ${phone} during business hours (Mon-Fri 7am-5pm).\n\nDirections: ${mapUrl}`,
+      description: `${t.title} at ${t.company}\n\n${desc}\n\nLocation: ${t.location}\nPay: ${t.pay}\n\nTo apply, visit the original job posting link.\n\nDirections: ${mapUrl}`,
       snippet: desc.substring(0, 120),
       url: jobUrl,
       source: src,
@@ -622,7 +618,6 @@ function generateNewJob(): InsertJob | null {
   const isUrgent = detectUrgent(title) || Math.random() > 0.7;
   const jobUrl = generateJobUrl(source, title, company, location);
   const mapUrl = generateMapUrl(location, coords?.lat, coords?.lng);
-  const phone = `(${["714","562","619","949","213","858"][Math.floor(Math.random()*6)]}) 555-0${100+Math.floor(Math.random()*900)}`;
 
   return {
     title, company, location,
@@ -633,8 +628,8 @@ function generateNewJob(): InsertJob | null {
     payRange: `$${payBase}-$${payHigh}/hr`,
     payType: "hourly",
     workType: isUrgent ? "day-labor" : "full-time",
-    description: `${title} at ${company}\n\nHiring now in ${location}. Competitive pay $${payBase}-$${payHigh}/hr. Reliable work with growth potential.\n\nRequirements:\n- Must be 18+\n- Reliable transportation\n- Able to pass background check\n- Steel-toed boots (provided if needed)\n\nContact: ${phone}\nApply online or walk in during business hours.\n\nDirections: ${mapUrl}`,
-    snippet: `Hiring now in ${location}. $${payBase}-$${payHigh}/hr. Call ${phone}`,
+    description: `${title} at ${company}\n\nHiring now in ${location}. Competitive pay $${payBase}-$${payHigh}/hr. Reliable work with growth potential.\n\nRequirements:\n- Must be 18+\n- Reliable transportation\n- Able to pass background check\n- Steel-toed boots (provided if needed)\n\nApply via the original job posting link.\n\nDirections: ${mapUrl}`,
+    snippet: `Hiring now in ${location}. $${payBase}-$${payHigh}/hr.`,
     url: jobUrl,
     source, sourceId: `live-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     isUrgent, isSaved: false,
