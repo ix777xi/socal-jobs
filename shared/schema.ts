@@ -43,6 +43,9 @@ export const jobs = sqliteTable("jobs", {
   fetchedAt: text("fetched_at").notNull(),
   expiresAt: text("expires_at"),
   status: text("status").default("active"), // active, expired, flagged
+  postedByUserId: integer("posted_by_user_id"), // null = aggregated, set = user-posted
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
 });
 
 export const alerts = sqliteTable("alerts", {
@@ -101,6 +104,27 @@ export const registerSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   name: z.string().min(1, "Name required").optional(),
 });
+
+// Job posting schema (for user-submitted jobs)
+export const postJobSchema = z.object({
+  title: z.string().min(3, "Job title must be at least 3 characters").max(200),
+  company: z.string().min(1, "Company name is required").max(200),
+  location: z.string().min(1, "Location is required").max(200),
+  city: z.string().optional(),
+  county: z.string().optional(),
+  zip: z.string().optional(),
+  trade: z.string().min(1, "Trade is required"),
+  payRange: z.string().optional(),
+  payType: z.string().optional(),
+  workType: z.string().optional(),
+  description: z.string().min(10, "Description must be at least 10 characters").max(5000),
+  contactEmail: z.string().email("Valid email required").optional().or(z.literal("")),
+  contactPhone: z.string().optional(),
+  isUrgent: z.boolean().optional(),
+  url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+});
+
+export type PostJobInput = z.infer<typeof postJobSchema>;
 
 // Types
 export type User = typeof users.$inferSelect;

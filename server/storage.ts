@@ -54,7 +54,10 @@ sqlite.exec(`
     posted_at TEXT,
     fetched_at TEXT NOT NULL,
     expires_at TEXT,
-    status TEXT DEFAULT 'active'
+    status TEXT DEFAULT 'active',
+    posted_by_user_id INTEGER,
+    contact_email TEXT,
+    contact_phone TEXT
   );
   CREATE TABLE IF NOT EXISTS alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,6 +106,15 @@ try {
 try {
   sqlite.exec(`ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'`);
 } catch {}
+try {
+  sqlite.exec(`ALTER TABLE jobs ADD COLUMN posted_by_user_id INTEGER`);
+} catch {}
+try {
+  sqlite.exec(`ALTER TABLE jobs ADD COLUMN contact_email TEXT`);
+} catch {}
+try {
+  sqlite.exec(`ALTER TABLE jobs ADD COLUMN contact_phone TEXT`);
+} catch {}
 
 export const db = drizzle(sqlite);
 
@@ -150,6 +162,10 @@ export interface IStorage {
   // Activity Log
   getActivityLog(limit?: number): ActivityLog[];
   createActivityLog(log: InsertActivityLog): ActivityLog;
+
+  // User-posted jobs
+  getJobsByUser(userId: number): Job[];
+  deleteJob(id: number): void;
 
   // Stats
   getStats(): {
@@ -378,6 +394,15 @@ export class SqliteStorage implements IStorage {
       .all();
 
     return { totalJobs, activeJobs, urgentJobs, savedJobs, newToday, activeSources, tradeBreakdown, countyBreakdown };
+  }
+
+  // User-posted jobs
+  getJobsByUser(userId: number): Job[] {
+    return db.select().from(jobs).where(eq(jobs.postedByUserId, userId)).orderBy(desc(jobs.fetchedAt)).all();
+  }
+
+  deleteJob(id: number): void {
+    db.delete(jobs).where(eq(jobs.id, id)).run();
   }
 }
 

@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useState, useEffect } from "react";
 import {
   Briefcase, Bell, Settings, Bookmark,
-  Menu, X, Sun, Moon, Zap, Crown, User, LogIn,
+  Menu, X, Sun, Moon, Zap, Crown, User, LogIn, PlusCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Dashboard from "./pages/dashboard";
@@ -17,6 +17,7 @@ import SavedPage from "./pages/saved";
 import AuthPage from "./pages/auth";
 import PricingPage from "./pages/pricing";
 import AccountPage from "./pages/account";
+import PostJobPage from "./pages/post-job";
 import NotFound from "./pages/not-found";
 
 function AppLayout() {
@@ -46,6 +47,7 @@ function AppLayout() {
 
   const navItems = [
     { href: "/", label: "Jobs Feed", icon: Briefcase },
+    { href: "/post-job", label: "Post a Job", icon: PlusCircle, pro: true },
     { href: "/saved", label: "Saved", icon: Bookmark, pro: true },
     { href: "/alerts", label: "Alerts", icon: Bell, pro: true },
     { href: "/sources", label: "Sources", icon: Settings },
@@ -63,12 +65,13 @@ function AppLayout() {
           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
         <div className="flex items-center gap-2">
-          <svg viewBox="0 0 32 32" className="w-7 h-7" aria-label="SoCal Jobs logo">
-            <rect x="2" y="8" width="28" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
-            <path d="M8 14h16M8 18h12M8 22h8" stroke="hsl(24 95% 50%)" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="24" cy="12" r="3" fill="hsl(24 95% 50%)" />
+          <svg viewBox="0 0 36 32" className="w-8 h-7" aria-label="Orange Blue Collar Jobs logo">
+            <rect x="2" y="6" width="32" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M9 13h18M9 17h14M9 21h10" stroke="hsl(24 95% 50%)" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M27 11l3-4" stroke="hsl(210 70% 50%)" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="27" cy="11" r="2.5" fill="hsl(210 70% 50%)" />
           </svg>
-          <span className="font-semibold text-sm">SoCal Jobs</span>
+          <span className="font-semibold text-sm leading-tight">OBC Jobs</span>
           {isPro && (
             <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0 h-4">PRO</Badge>
           )}
@@ -92,14 +95,15 @@ function AppLayout() {
         `}
       >
         <div className="hidden md:flex items-center gap-3 px-5 py-5">
-          <svg viewBox="0 0 32 32" className="w-8 h-8 flex-shrink-0" aria-label="SoCal Jobs logo">
-            <rect x="2" y="8" width="28" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
-            <path d="M8 14h16M8 18h12M8 22h8" stroke="hsl(24 95% 50%)" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="24" cy="12" r="3" fill="hsl(24 95% 50%)" />
+          <svg viewBox="0 0 36 32" className="w-8 h-8 flex-shrink-0" aria-label="Orange Blue Collar Jobs logo">
+            <rect x="2" y="6" width="32" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M9 13h18M9 17h14M9 21h10" stroke="hsl(24 95% 50%)" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M27 11l3-4" stroke="hsl(210 70% 50%)" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="27" cy="11" r="2.5" fill="hsl(210 70% 50%)" />
           </svg>
           <div>
-            <h1 className="font-bold text-sm leading-tight">SoCal Jobs</h1>
-            <p className="text-[11px] text-muted-foreground leading-tight">Blue-Collar Aggregator</p>
+            <h1 className="font-bold text-sm leading-tight">Orange Blue Collar</h1>
+            <p className="text-[11px] text-muted-foreground leading-tight">Jobs</p>
           </div>
         </div>
 
@@ -210,6 +214,7 @@ function AppLayout() {
       <main className="flex-1 overflow-y-auto overscroll-contain">
         <Switch>
           <Route path="/" component={Dashboard} />
+          <Route path="/post-job" component={PostJobPage} />
           <Route path="/saved" component={SavedPage} />
           <Route path="/alerts" component={AlertsPage} />
           <Route path="/sources" component={SourcesPage} />

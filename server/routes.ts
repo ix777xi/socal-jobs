@@ -2,7 +2,7 @@ import type { Express } from "express";
 import type { Server } from "http";
 import session from "express-session";
 import { storage } from "./storage";
-import { insertAlertSchema } from "@shared/schema";
+import { insertAlertSchema, postJobSchema } from "@shared/schema";
 import { seedInitialJobs, startPolling, stopPolling, isPolling, pollForNewJobs } from "./ingestion";
 import { registerAuthRoutes, requireAuth, requireSubscription, getSessionUser } from "./auth";
 import { registerStripeRoutes } from "./stripe";
@@ -122,6 +122,83 @@ export async function registerRoutes(server: Server, app: Express) {
 
   app.delete("/api/alerts/:id", requireAuth, requireSubscription, (req, res) => {
     storage.deleteAlert(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
+  // ---- Job Posting (Pro only) ----
+  app.post("/api/jobs/post", requireAuth, requireSubscription, (req, res) => {
+    const parsed = postJobSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+
+    const user = (req as any).user;
+    const data = parsed.data;
+    const now = new Date().toISOString();
+
+    const job = storage.createJob({
+      title: data.title,
+      company: data.company,
+      location: data.location,
+      city: data.city || null,
+      county: data.county || null,
+      zip: data.zip || null,
+      lat: null,
+      lng: null,
+      trade: data.trade,
+      payRange: data.payRange || null,
+      payType: data.payType || null,
+      workType: data.workType || null,
+      description: data.description,
+      snippet: data.description.substring(0, 120) + (data.description.length > 120 ? "..." : ""),
+      url: data.url || null,
+      source: "User Posted",
+      sourceId: `user-${user.id}-${Date.now()}`,
+      isUrgent: data.isUrgent || false,
+      isSaved: false,
+      tags: null,
+      postedAt: now,
+      fetchedAt: now,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+      status: "active",
+      postedByUserId: user.id,
+      contactEmail: data.contactEmail || null,
+      contactPhone: data.contactPhone || null,
+    });
+
+    res.json(job);
+  });
+
+  // Get current user's posted jobs
+  app.get("/api/jobs/my-postings", requireAuth, requireSubscription, (req, res) => {
+    const user = (req as any).user;
+    const myJobs = storage.getJobsByUser(user.id);
+    res.json(myJobs);
+  });
+
+  // Update a user-posted job
+  app.patch("/api/jobs/:id/edit", requireAuth, requireSubscription, (req, res) => {
+    const user = (req as any).user;
+    const job = storage.getJob(parseInt(req.params.id));
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    if (job.postedByUserId !== user.id) return res.status(403).json({ error: "You can only edit your own postings" });
+
+    const parsed = postJobSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+
+    const data = parsed.data;
+    const updated = storage.updateJob(job.id, {
+      ...data,
+      snippet: data.description ? data.description.substring(0, 120) + (data.description.length > 120 ? "..." : "") : undefined,
+    });
+    res.json(updated);
+  });
+
+  // Delete a user-posted job
+  app.delete("/api/jobs/:id", requireAuth, requireSubscription, (req, res) => {
+    const user = (req as any).user;
+    const job = storage.getJob(parseInt(req.params.id));
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    if (job.postedByUserId !== user.id) return res.status(403).json({ error: "You can only delete your own postings" });
+    storage.deleteJob(job.id);
     res.json({ success: true });
   });
 
